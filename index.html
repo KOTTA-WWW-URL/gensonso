@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>すーぱーちぇっく(新)</title>
+    <meta property="og:title" content="すーぱーちぇっく(新)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="-すーぱーちぇっく-の練習として開発したものです。scratchのバージョン2です。" />
+    <meta property="og:site_name" content="すーぱーちぇっく(新)" />
+    
+    <style>
+        :root {
+            --key-bg: #ffffff;
+            --bg-color: #d1d4d9;
+            --special-key-bg: #adb5bd;
+            --active-bg: #a0a0a0;
+            --shift-bg: #ffc107;
+            --disabled-key-bg: #e8e8e8;
+            --disabled-key-color: #bbb;
+
+            --key-height: 48px;
+            --key-font: 16px;
+            --key-mb: 7px;
+            --kbd-padding: 9px;
+            --num-row-height: 40px;
+            --num-row-font: 13px;
+            /* 5 rows: num row + 4 alpha rows */
+            --keyboard-total: calc(var(--num-row-height) + var(--key-height) * 4 + var(--key-mb) * 5 + var(--kbd-padding) * 2);
+        }
+
+        @media (max-height: 600px) {
+            :root {
+                --key-height: 34px;
+                --key-font: 12px;
+                --key-mb: 4px;
+                --kbd-padding: 5px;
+                --num-row-height: 30px;
+                --num-row-font: 11px;
+            }
+        }
+        @media (max-height: 700px) and (min-height: 601px) {
+            :root {
+                --key-height: 40px;
+                --key-font: 14px;
+                --key-mb: 5px;
+                --kbd-padding: 7px;
+                --num-row-height: 34px;
+                --num-row-font: 12px;
+            }
+        }
+        @media (max-width: 360px) {
+            :root {
+                --key-font: 11px;
+                --num-row-font: 10px;
+            }
+        }
+
+        * {
+            touch-action: manipulation;
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0; padding: 0; height: 100%; overflow: hidden;
+        }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 10;
+            padding: 16px; overflow-y: auto;
+        }
+        .active-screen { display: flex; }
+
+        .menu-btn {
+            padding: 15px 30px; margin: 8px; font-size: clamp(14px, 4vw, 18px);
+            cursor: pointer; border: none; background: #007bff; color: white; border-radius: 8px;
+            min-width: min(280px, 85vw); transition: 0.2s;
+        }
+
+        #admin-trigger {
+            position: absolute; bottom: 20px; right: 20px;
+            padding: 8px 15px; background: #6c757d; color: white;
+            border-radius: 5px; cursor: pointer; font-size: 12px; border: none; opacity: 0.6;
+        }
+        #admin-screen {
+            background: #1e1e1e; color: #00ff00; font-family: monospace;
+            padding: 20px; box-sizing: border-box;
+        }
+        #admin-console {
+            width: 95%; height: 60%; background: #000; color: #00ff00;
+            padding: 10px; overflow-y: auto; border: 1px solid #333;
+            margin-bottom: 10px; font-size: 14px; white-space: pre-wrap;
+        }
+        #admin-input {
+            width: 95%; background: #000; color: #00ff00;
+            border: 1px solid #00ff00; padding: 10px;
+            font-family: monospace; outline: none;
+        }
+
+        #message-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; background: rgba(255,255,255,0.95);
+            overflow-y: auto; padding: 10px 16px;
+        }
+        #message-content {
+            font-size: clamp(32px, 10vw, 70px); font-weight: bold;
+        }
+        #message-sub {
+            font-size: clamp(13px, 3.5vw, 22px);
+            color: #333; margin: 8px 0; text-align: center; padding: 0 8px;
+        }
+
+        #gacha-result { text-align: center; margin-top: 8px; display: none; }
+        #gacha-img {
+            max-width: min(220px, 42vw); max-height: 22vh;
+            width: auto; height: auto;
+            border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        #gacha-prob {
+            margin-top: 6px; font-weight: bold; color: #666;
+            font-size: clamp(11px, 3vw, 15px);
+        }
+
+        #game-container {
+            position: fixed; top: 0; left: 0; width: 100%;
+            height: calc(100% - var(--keyboard-total));
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 8px 16px; overflow-y: auto;
+        }
+        #mondai-display {
+            font-size: clamp(14px, 4vw, 22px); margin-bottom: 12px; color: #555;
+        }
+        #answer-area {
+            font-size: clamp(18px, 5vw, 28px); font-weight: bold;
+            display: flex; flex-wrap: wrap;
+            justify-content: center; gap: 8px; align-items: center;
+        }
+        .input-box {
+            border-bottom: 3px solid #ccc;
+            min-width: clamp(50px, 15vw, 80px);
+            height: clamp(30px, 8vw, 40px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 5px;
+        }
+        .input-box.active-box { border-bottom-color: #007bff; color: #007bff; }
+        .cursor {
+            width: 2px; height: clamp(18px, 5vw, 24px);
+            background-color: #007bff; animation: blink 0.8s infinite; margin-left: 2px;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ===== KEYBOARD ===== */
+        .keyboard {
+            position: fixed; bottom: 0; width: 100%;
+            background-color: var(--bg-color);
+            padding: var(--kbd-padding) 0;
+            display: none;
+            padding-bottom: calc(var(--kbd-padding) + env(safe-area-inset-bottom, 0px));
+        }
+        .row {
+            display: flex; justify-content: center; margin-bottom: var(--key-mb);
+        }
+        .row:last-child { margin-bottom: 0; }
+
+        /* Normal keys */
+        .key {
+            flex: 1; margin: 0 2px;
+            background-color: var(--key-bg);
+            border: none; border-radius: 5px;
+            font-size: var(--key-font);
+            cursor: pointer;
+            box-shadow: 0 3px 0 #999;
+            transition: transform 0.08s, box-shadow 0.08s, background-color 0.1s;
+            touch-action: manipulation;
+            user-select: none; -webkit-user-select: none;
+            min-width: 0; padding: 0 1px;
+            color: #222;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 1px;
+            height: var(--key-height);
+        }
+        /* Number row keys are shorter */
+        .key-num {
+            height: var(--num-row-height);
+            font-size: var(--num-row-font);
+        }
+        .key.active {
+            background-color: var(--active-bg) !important;
+            box-shadow: 0 1px 0 #999;
+            transform: translateY(2px);
+        }
+        .key.key-disabled {
+            background-color: var(--disabled-key-bg);
+            color: var(--disabled-key-color);
+            cursor: not-allowed;
+            box-shadow: 0 2px 0 #ccc;
+        }
+        .key-special { background-color: var(--special-key-bg); flex: 1.5; }
+        .key-wide { flex: 2; }
+        .key-space { flex: 4; }
+        .key.shift-active {
+            background-color: var(--shift-bg) !important;
+            color: #222; font-weight: bold;
+        }
+
+        /* Sub-label shown on key (shift mode indicator) */
+        .key-main { line-height: 1; }
+        .key-sub {
+            font-size: 0.65em; color: #888; line-height: 1;
+        }
+        .key.shift-active .key-sub { color: #555; }
+
+        /* ===== ALL END ===== */
+        #allend-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: flex-start;
+            z-index: 60; background: white;
+            padding: 24px 16px 32px; overflow-y: auto;
+        }
+        #allend-title {
+            font-size: clamp(40px, 12vw, 80px);
+            font-weight: bold; letter-spacing: 4px; color: #222; margin-top: 20px;
+        }
+        #allend-score { font-size: clamp(18px, 5vw, 32px); color: #555; margin: 16px 0; }
+        #allend-back {
+            padding: clamp(10px, 3vw, 15px) clamp(20px, 6vw, 40px);
+            font-size: clamp(16px, 4vw, 20px);
+            background: #007bff; color: white;
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 10px;
+        }
+        #wrong-list-section { width: 100%; max-width: 600px; margin-top: 24px; text-align: left; }
+        #wrong-list-title {
+            font-size: clamp(16px, 4.5vw, 22px); font-weight: bold; color: #c0392b;
+            margin-bottom: 12px; border-left: 5px solid #c0392b; padding-left: 10px;
+        }
+        .wrong-item {
+            background: #fff5f5; border: 1px solid #f5c6cb;
+            border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;
+        }
+        .wrong-item .wi-mondai { font-size: clamp(12px, 3.2vw, 15px); color: #777; margin-bottom: 4px; }
+        .wrong-item .wi-answer { font-size: clamp(13px, 3.5vw, 17px); font-weight: bold; color: #222; }
+        .wrong-item .wi-answer span {
+            background: #ffe0e0; border-radius: 4px; padding: 1px 5px; color: #c0392b;
+        }
+
+        /* Shift mode indicator banner */
+        #shift-banner {
+            position: fixed; top: calc(100% - var(--keyboard-total) - 28px); left: 0;
+            width: 100%; text-align: center;
+            font-size: 12px; font-weight: bold; letter-spacing: 1px;
+            padding: 3px 0;
+            transition: all 0.15s;
+            z-index: 5;
+            display: none;
+            pointer-events: none;
+        }
+        #shift-banner.shift-on {
+            background: var(--shift-bg);
+            color: #333;
+        }
+        #shift-banner.shift-off {
+            background: #e0e0e0;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div id="allend-overlay">
+    <div id="allend-title">ALL END</div>
+    <div id="allend-score"></div>
+    <button id="allend-back" onclick="goToStart()">トップへ戻る</button>
+    <div id="wrong-list-section" style="display:none;">
+        <div id="wrong-list-title">❌ 間違えた問題</div>
+        <div id="wrong-list"></div>
+    </div>
+</div>
+
+<div id="message-overlay">
+    <div id="message-content"></div>
+    <div id="message-sub"></div>
+    <div id="gacha-result">
+        <img id="gacha-img" src="">
+        <div id="gacha-prob"></div>
+    </div>
+    <button id="gacha-btn" class="menu-btn" style="display:none; background:#ffc107; color:black;" onclick="pullGacha()">ガチャを引く！</button>
+    <button id="mix-btn" class="menu-btn" style="display:none; background:#6f42c1; color:white;" onclick="mixGacha()">🔀 混ぜる</button>
+    <button id="next-btn-manual" class="menu-btn" style="display:none; background:#28a745;" onclick="closeMessageAndNext()">次の問題</button>
+</div>
+
+<div id="start-screen" class="screen active-screen">
+    <h1>Versionを選択</h1>
+    <div id="ver-list">読み込み中...</div>
+    <button id="admin-trigger" onclick="tryAdminAccess()">管理者</button>
+</div>
+
+<div id="order-screen" class="screen">
+    <h2>出題順を選択</h2>
+    <button class="menu-btn" onclick="setOrder('normal')">順番どおり</button>
+    <button class="menu-btn" onclick="setOrder('random')">ランダム</button>
+</div>
+
+<div id="style-screen" class="screen">
+    <h2>基本モードを選択</h2>
+    <button class="menu-btn" onclick="setBaseStyle('once')">一周モード</button>
+    <button class="menu-btn" onclick="setBaseStyle('retry')">克服モード</button>
+</div>
+
+<div id="substyle-screen" class="screen">
+    <h2>付加機能を選択</h2>
+    <button class="menu-btn" onclick="setFinalStyle('gacha')" style="background:#ffc107; color:black;">ガチャモード (4回正解でガチャ)</button>
+    <button class="menu-btn" onclick="setFinalStyle('study')" style="background:#17a2b8;">勉強モード</button>
+</div>
+
+<div id="admin-screen" class="screen">
+    <h2>ADMIN CONSOLE</h2>
+    <div id="admin-console"></div>
+    <input type="text" id="admin-input" placeholder="Type command..." onkeydown="processAdminCommand(event)">
+</div>
+
+<div id="game-container">
+    <div id="mondai-display"></div>
+    <div id="answer-area"></div>
+</div>
+
+<!-- Shift mode banner (shown above keyboard during game) -->
+<div id="shift-banner" class="shift-off">通常モード　A-Z / →</div>
+
+<!--
+    KEYBOARD LAYOUT (2 modes):
+
+    NORMAL MODE (Shift OFF): uppercase A-Z, →, Backspace, Enter, ;(=+), Space
+    SHIFT MODE  (Shift ON):  lowercase a-z, 1-9, →, Backspace, Enter, ;(=+), Space
+
+    Number row (1-9): shown in shift mode as input digits, in normal mode disabled
+    → key always available
+    + shown as ; key always
+-->
+<div class="keyboard" id="main-keyboard">
+    <!-- Number row (1-9): active only in shift mode -->
+    <div class="row" id="num-row">
+        <button class="key key-num key-num-btn key-disabled" data-key="1" onclick="handleInput('1')"><span class="key-main">1</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="2" onclick="handleInput('2')"><span class="key-main">2</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="3" onclick="handleInput('3')"><span class="key-main">3</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="4" onclick="handleInput('4')"><span class="key-main">4</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="5" onclick="handleInput('5')"><span class="key-main">5</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="6" onclick="handleInput('6')"><span class="key-main">6</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="7" onclick="handleInput('7')"><span class="key-main">7</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="8" onclick="handleInput('8')"><span class="key-main">8</span></button>
+        <button class="key key-num key-num-btn key-disabled" data-key="9" onclick="handleInput('9')"><span class="key-main">9</span></button>
+    </div>
+    <!-- Row 1: Q-P -->
+    <div class="row">
+        <button class="key" data-key="q" onclick="handleInput('q')"><span class="key-main" id="kd-q">Q</span></button>
+        <button class="key" data-key="w" onclick="handleInput('w')"><span class="key-main" id="kd-w">W</span></button>
+        <button class="key" data-key="e" onclick="handleInput('e')"><span class="key-main" id="kd-e">E</span></button>
+        <button class="key" data-key="r" onclick="handleInput('r')"><span class="key-main" id="kd-r">R</span></button>
+        <button class="key" data-key="t" onclick="handleInput('t')"><span class="key-main" id="kd-t">T</span></button>
+        <button class="key" data-key="y" onclick="handleInput('y')"><span class="key-main" id="kd-y">Y</span></button>
+        <button class="key" data-key="u" onclick="handleInput('u')"><span class="key-main" id="kd-u">U</span></button>
+        <button class="key" data-key="i" onclick="handleInput('i')"><span class="key-main" id="kd-i">I</span></button>
+        <button class="key" data-key="o" onclick="handleInput('o')"><span class="key-main" id="kd-o">O</span></button>
+        <button class="key" data-key="p" onclick="handleInput('p')"><span class="key-main" id="kd-p">P</span></button>
+    </div>
+    <!-- Row 2: A-L -->
+    <div class="row">
+        <button class="key" data-key="a" onclick="handleInput('a')"><span class="key-main" id="kd-a">A</span></button>
+        <button class="key" data-key="s" onclick="handleInput('s')"><span class="key-main" id="kd-s">S</span></button>
+        <button class="key" data-key="d" onclick="handleInput('d')"><span class="key-main" id="kd-d">D</span></button>
+        <button class="key" data-key="f" onclick="handleInput('f')"><span class="key-main" id="kd-f">F</span></button>
+        <button class="key" data-key="g" onclick="handleInput('g')"><span class="key-main" id="kd-g">G</span></button>
+        <button class="key" data-key="h" onclick="handleInput('h')"><span class="key-main" id="kd-h">H</span></button>
+        <button class="key" data-key="j" onclick="handleInput('j')"><span class="key-main" id="kd-j">J</span></button>
+        <button class="key" data-key="k" onclick="handleInput('k')"><span class="key-main" id="kd-k">K</span></button>
+        <button class="key" data-key="l" onclick="handleInput('l')"><span class="key-main" id="kd-l">L</span></button>
+    </div>
+    <!-- Row 3: Shift, Z-M, Backspace -->
+    <div class="row">
+        <button class="key key-special" data-key="Shift" id="shift-key" onclick="handleInput('Shift')">Shift</button>
+        <button class="key" data-key="z" onclick="handleInput('z')"><span class="key-main" id="kd-z">Z</span></button>
+        <button class="key" data-key="x" onclick="handleInput('x')"><span class="key-main" id="kd-x">X</span></button>
+        <button class="key" data-key="c" onclick="handleInput('c')"><span class="key-main" id="kd-c">C</span></button>
+        <button class="key" data-key="v" onclick="handleInput('v')"><span class="key-main" id="kd-v">V</span></button>
+        <button class="key" data-key="b" onclick="handleInput('b')"><span class="key-main" id="kd-b">B</span></button>
+        <button class="key" data-key="n" onclick="handleInput('n')"><span class="key-main" id="kd-n">N</span></button>
+        <button class="key" data-key="m" onclick="handleInput('m')"><span class="key-main" id="kd-m">M</span></button>
+        <button class="key key-special" data-key="Backspace" onclick="handleInput('Backspace')">⌫</button>
+    </div>
+    <!-- Row 4: →, ;(+), Space, Enter -->
+    <div class="row">
+        <button class="key key-wide" data-key="ArrowRight" onclick="handleInput('ArrowRight')">→</button>
+        <button class="key key-wide" data-key=";" onclick="handleInput(';')">;</button>
+        <button class="key key-space" data-key=" " onclick="handleInput(' ')">Space</button>
+        <button class="key key-special" data-key="Enter" onclick="handleInput('Enter')">Enter</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBThej0xTpO6eBOHhpXxaJHgPzpdekXvFM",
+        authDomain: "genso-daa6d.firebaseapp.com",
+        databaseURL: "https://genso-daa6d-default-rtdb.firebaseio.com",
+        projectId: "genso-daa6d",
+        storageBucket: "genso-daa6d.firebasestorage.app",
+        messagingSenderId: "218450334268",
+        appId: "1:218450334268:web:37590aa47de792b5c4e939",
+        measurementId: "G-GP4NJH14VY"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dbRef = ref(db, 'mondaiData');
+
+    window.rawMondai = [];
+    window.rawKotaeGroups = [];
+    window.hani_end = [];
+    window.kaitouran = [];
+    window.adminPass = null;
+
+    onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            window.rawMondai   = data.mondai    || [];
+            window.rawKotaeGroups = data.kotae  || [];
+            window.hani_end    = data.hani      || [];
+            window.kaitouran   = data.kaitouran || [];
+            window.adminPass   = data.pass      || null;  // "pass" field per instructions
+            renderVerList();
+        }
+    });
+
+    window.saveToFirebase = function() {
+        set(dbRef, {
+            mondai:    window.rawMondai,
+            kotae:     window.rawKotaeGroups,
+            hani:      window.hani_end,
+            kaitouran: window.kaitouran,
+            pass:      window.adminPass
+        }).then(() => console.log("Cloud Updated!"));
+    };
+</script>
+
+<script>
+    // ===== State =====
+    let playStyle = 'once', subStyle = 'gacha', playOrder = 'normal';
+    let currentPool = [], currentPos = 0;
+    let inputs = [], activeInputIdx = 0;
+    let isShift = false;   // true = shift mode (lowercase + numbers)
+    let isWaiting = false;
+    let correctCount = 0, totalQuestions = 0;
+    let retryPool = [], wrongAnswers = [];
+
+    const GACHA_TABLE = [
+        { src: "spch/Cn_transparent.png", prob: 40 },
+        { src: "spch/En_transparent.png", prob: 40 },
+        { src: "spch/An_transparent.png", prob: 10 },
+        { src: "spch/Dn_transparent.png", prob: 8  },
+        { src: "spch/Bn_transparent.png", prob: 2  }
+    ];
+
+    // ===== Keyboard mode logic =====
+    //
+    // NORMAL MODE (isShift = false):
+    //   - A-Z (uppercase) → input uppercase letters
+    //   - 1-9 keys DISABLED
+    //   - →, Backspace, Enter, ; always active
+    //
+    // SHIFT MODE (isShift = true):
+    //   - a-z (lowercase) → input lowercase letters
+    //   - 1-9 enabled → input digits
+    //   - →, Backspace, Enter, ; always active
+
+    function updateKeyboardDisplay() {
+        const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+        letters.forEach(c => {
+            const el = document.getElementById(`kd-${c}`);
+            if (el) el.textContent = isShift ? c : c.toUpperCase();
+        });
+
+        // Shift key visual
+        const shiftKey = document.getElementById('shift-key');
+        if (isShift) {
+            shiftKey.classList.add('shift-active');
+        } else {
+            shiftKey.classList.remove('shift-active');
+        }
+
+        // Number keys: enabled in shift mode, disabled in normal mode
+        document.querySelectorAll('.key-num-btn').forEach(btn => {
+            if (isShift) {
+                btn.classList.remove('key-disabled');
+            } else {
+                btn.classList.add('key-disabled');
+            }
+        });
+
+        // Banner
+        const banner = document.getElementById('shift-banner');
+        if (isShift) {
+            banner.className = 'shift-off'; // reuse class for visual; we use separate logic
+            banner.style.background = 'var(--shift-bg)';
+            banner.style.color = '#333';
+            banner.textContent = 'Shiftモード　a-z / 1-9 / →';
+        } else {
+            banner.style.background = '#e0e0e0';
+            banner.style.color = '#555';
+            banner.textContent = '通常モード　A-Z / →';
+        }
+    }
+
+    function flashKey(key) {
+        if (key === 'Shift') return;
+        // Find button by data-key
+        const btn = document.querySelector(`.key[data-key="${CSS.escape(key)}"]`);
+        if (!btn || btn.classList.contains('key-disabled')) return;
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 150);
+    }
+
+    // ===== Input handler =====
+    function handleInput(key) {
+        if (isWaiting) return;
+        if (document.getElementById('admin-screen').classList.contains('active-screen')) return;
+        if (document.getElementById('game-container').style.display !== 'flex') return;
+
+        if (key === 'Shift') {
+            isShift = !isShift;
+            updateKeyboardDisplay();
+            return;
+        }
+
+        // Numbers only in shift mode
+        if (/^[1-9]$/.test(key) && !isShift) return;
+
+        flashKey(key);
+
+        if (key === 'Backspace') {
+            if (inputs[activeInputIdx] === '') {
+                if (activeInputIdx > 0) activeInputIdx--;
+            } else {
+                inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
+            }
+        } else if (key === 'Enter') {
+            if (inputs.length > 1 && activeInputIdx < inputs.length - 1) {
+                activeInputIdx++;
+            } else {
+                checkAnswer();
+            }
+        } else if (key === ' ') {
+            inputs[activeInputIdx] += ' ';
+            if (activeInputIdx < inputs.length - 1) activeInputIdx++;
+        } else if (key === 'ArrowRight') {
+            inputs[activeInputIdx] += '→';
+        } else if (key === ';') {
+            inputs[activeInputIdx] += '+';
+        } else if (/^[1-9]$/.test(key) && isShift) {
+            // subscript digits (₁-₉)
+            const SUB = ['₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+            inputs[activeInputIdx] += SUB[parseInt(key) - 1];
+        } else if (/^[a-zA-Z]$/.test(key)) {
+            // In shift mode, always lowercase; normal mode always uppercase
+            inputs[activeInputIdx] += isShift ? key.toLowerCase() : key.toUpperCase();
+            // Auto-release shift after one letter? No — toggle design means it stays.
+        } else {
+            // Unrecognized / disabled key, ignore
+            return;
+        }
+
+        updateDisplay();
+    }
+
+    // ===== Render =====
+    function renderVerList() {
+        const listEl = document.getElementById('ver-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        window.hani_end.forEach((val, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'menu-btn';
+            btn.innerText = `Ver ${i + 1}.0`;
+            btn.onclick = () => {
+                const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
+                currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
+                showScreen('order-screen');
+            };
+            listEl.appendChild(btn);
+        });
+    }
+
+    function setOrder(o) { playOrder = o; showScreen('style-screen'); }
+    function setBaseStyle(s) { playStyle = s; showScreen('substyle-screen'); }
+    function setFinalStyle(s) {
+        subStyle = s; correctCount = 0; startGame();
+    }
+
+    function startGame() {
+        currentPos = 0; correctCount = 0; totalQuestions = 0;
+        retryPool = []; wrongAnswers = [];
+        if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
+        totalQuestions = currentPool.length;
+        showScreen('');
+        document.getElementById('game-container').style.display = 'flex';
+        document.getElementById('main-keyboard').style.display = 'block';
+        document.getElementById('shift-banner').style.display = 'block';
+        isShift = false;
+        updateKeyboardDisplay();
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        const idx = currentPool[currentPos];
+        document.getElementById('mondai-display').innerText = window.rawMondai[idx] || '';
+
+        const template = window.kaitouran[idx] || '';
+        const ans = window.rawKotaeGroups[idx] || [];
+        const area = document.getElementById('answer-area');
+        area.innerHTML = '';
+
+        const parts = template.split('()');
+        inputs = new Array(parts.length - 1).fill('');
+        activeInputIdx = 0;
+
+        parts.forEach((pt, i) => {
+            if (pt !== '') {
+                const span = document.createElement('span');
+                span.innerText = pt;
+                area.appendChild(span);
+            }
+            if (i < parts.length - 1) {
+                const b = document.createElement('div');
+                b.className = 'input-box';
+                b.id = `box-${i}`;
+                const ansLen = (ans[i] || '').length;
+                if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
+                area.appendChild(b);
+            }
+        });
+
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        inputs.forEach((v, i) => {
+            const b = document.getElementById(`box-${i}`);
+            if (!b) return;
+            b.classList.remove('active-box');
+            b.innerHTML = '';
+            if (i === activeInputIdx) {
+                b.classList.add('active-box');
+                b.innerText = v.replace(/ /g, '\u00A0');
+                b.style.color = '#007bff';
+                const c = document.createElement('span');
+                c.className = 'cursor';
+                b.appendChild(c);
+            } else {
+                b.innerText = (v || '').replace(/ /g, '\u00A0');
+                b.style.color = v ? '#333' : '#ccc';
+            }
+        });
+    }
+
+    function checkAnswer() {
+        const idx = currentPool[currentPos];
+        const ans = window.rawKotaeGroups[idx] || [];
+        const template = window.kaitouran[idx] || '';
+
+        const ok = inputs.every((v, i) => v.trim() === (ans[i] || ''));
+
+        const parts = template.split('()');
+        let correctSentence = '';
+        parts.forEach((pt, i) => {
+            correctSentence += pt;
+            if (i < parts.length - 1) correctSentence += `(${ans[i] || ''})`;
+        });
+
+        if (ok) {
+            if (subStyle === 'gacha') {
+                correctCount++;
+                if (correctCount >= 4) {
+                    correctCount = 0;
+                    showMsg('正解！', 'green', null, '4回正解達成！おめでと！', true);
+                    return;
+                }
+            }
+            showMsg('正解', 'green', () => next());
+        } else {
+            if (playStyle === 'retry') retryPool.push(idx);
+            const mondaiText = window.rawMondai[idx] || '';
+            wrongAnswers.push({ mondai: mondaiText, answer: correctSentence });
+            showMsg('不正解', 'red', null, `正解: ${correctSentence}`);
+        }
+    }
+
+    function showMsg(m, c, cb, sub = '', gachaReady = false) {
+        isWaiting = true;
+        const o = document.getElementById('message-overlay');
+        document.getElementById('message-content').innerText = m;
+        document.getElementById('message-content').style.color = c;
+        document.getElementById('message-sub').innerText = sub;
+        document.getElementById('gacha-result').style.display = 'none';
+
+        const gBtn = document.getElementById('gacha-btn');
+        const nBtn = document.getElementById('next-btn-manual');
+        const mBtn = document.getElementById('mix-btn');
+
+        if (gachaReady) {
+            gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none';
+        } else {
+            gBtn.style.display = 'none'; mBtn.style.display = 'none';
+            nBtn.style.display = cb ? 'none' : 'block';
+        }
+
+        o.style.display = 'flex';
+        if (cb) setTimeout(() => { o.style.display = 'none'; isWaiting = false; cb(); }, 1000);
+    }
+
+    function pullGacha() {
+        const rand = Math.random() * 100;
+        let sum = 0, selected = GACHA_TABLE[0];
+        for (const item of GACHA_TABLE) {
+            sum += item.prob;
+            if (rand < sum) { selected = item; break; }
+        }
+        document.getElementById('gacha-btn').style.display = 'none';
+        document.getElementById('mix-btn').style.display = 'none';
+        const res = document.getElementById('gacha-result');
+        document.getElementById('gacha-img').src = selected.src;
+        document.getElementById('gacha-prob').innerText = `出現確率: ${selected.prob}%`;
+        res.style.display = 'block';
+        document.getElementById('next-btn-manual').style.display = 'block';
+    }
+
+    function mixGacha() {
+        document.getElementById('gacha-btn').style.display = 'none';
+        document.getElementById('mix-btn').style.display = 'none';
+        setTimeout(() => {
+            document.getElementById('gacha-btn').style.display = 'block';
+            document.getElementById('mix-btn').style.display = 'block';
+        }, 300);
+    }
+
+    function next() {
+        currentPos++;
+        if (currentPos >= currentPool.length) {
+            if (playStyle === 'retry' && retryPool.length > 0) {
+                currentPool = [...retryPool]; retryPool = [];
+                if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
+                currentPos = 0; loadQuestion();
+            } else {
+                showAllEnd();
+            }
+        } else {
+            loadQuestion();
+        }
+    }
+
+    function showAllEnd() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('shift-banner').style.display = 'none';
+
+        const scoreEl = document.getElementById('allend-score');
+        if (playStyle === 'once') {
+            scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`;
+        } else {
+            scoreEl.innerText = '全問正解！';
+        }
+
+        const section = document.getElementById('wrong-list-section');
+        const listEl = document.getElementById('wrong-list');
+        listEl.innerHTML = '';
+        if (wrongAnswers.length > 0) {
+            section.style.display = 'block';
+            wrongAnswers.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'wrong-item';
+                const highlighted = item.answer.replace(/\(([^)]*)\)/g, '(<span>$1</span>)');
+                div.innerHTML = `
+                    <div class="wi-mondai">Q${i+1}. ${item.mondai}</div>
+                    <div class="wi-answer">正解: ${highlighted}</div>`;
+                listEl.appendChild(div);
+            });
+        } else {
+            section.style.display = 'none';
+        }
+        document.getElementById('allend-overlay').style.display = 'flex';
+    }
+
+    function goToStart() {
+        document.getElementById('allend-overlay').style.display = 'none';
+        showScreen('start-screen');
+    }
+
+    function closeMessageAndNext() {
+        document.getElementById('message-overlay').style.display = 'none';
+        isWaiting = false;
+        next();
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('shift-banner').style.display = 'none';
+        if (id) document.getElementById(id).classList.add('active-screen');
+    }
+
+    function tryAdminAccess() {
+        const pass = window.adminPass;
+        if (prompt('Pass?') === String(pass)) showScreen('admin-screen');
+    }
+
+    // ===== Admin Console =====
+    function logAdmin(t) {
+        const c = document.getElementById('admin-console');
+        c.innerText += t + '\n';
+        c.scrollTop = c.scrollHeight;
+    }
+    function getListByName(name) {
+        if (name === 'mondai')    return window.rawMondai;
+        if (name === 'kotae')     return window.rawKotaeGroups;
+        if (name === 'hani')      return window.hani_end;
+        if (name === 'kaitouran') return window.kaitouran;
+        return null;
+    }
+    function processAdminCommand(e) {
+        if (e.key !== 'Enter') return;
+        const input = document.getElementById('admin-input');
+        const full = input.value.trim();
+        input.value = '';
+        if (!full) return;
+        logAdmin('> ' + full);
+        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || [];
+        const cmd = p[0]?.toLowerCase();
+
+        if (cmd === 'exit') showScreen('start-screen');
+        else if (cmd === 'setpass') {
+            const newPass = p[1];
+            if (!newPass) return logAdmin('Usage: setpass <新しいパスワード>');
+            window.adminPass = newPass;
+            window.saveToFirebase();
+            logAdmin(`パスワードを「${newPass}」に更新しました。`);
+        }
+        else if (cmd === 'show') {
+            const listName = p[1]?.toLowerCase();
+            if (listName === 'all') logAdmin(`Sizes: mondai:${window.rawMondai.length}, kotae:${window.rawKotaeGroups.length}, hani:${window.hani_end.length}, kaitouran:${window.kaitouran.length}`);
+            else {
+                const list = getListByName(listName);
+                if (list) list.forEach((v, i) => logAdmin(`[${i}] ${Array.isArray(v)?v.join(','):v}`));
+                else logAdmin('Lists: mondai, kotae, hani, kaitouran');
+            }
+        }
+        else if (cmd === 'add') {
+            const listName = p[2]?.toLowerCase();
+            if (listName === 'all') {
+                const mondaiData = p[3], kotaeData = p[4] ? p[4].split(',') : [], kaitouranData = p[5];
+                if (!mondaiData || !kotaeData.length || !kaitouranData) return logAdmin('Usage: add <idx/f> all <mondai> <kotae> <kaitouran>');
+                const idxM = p[1]==='f' ? window.rawMondai.length : parseInt(p[1]);
+                window.rawMondai.splice(idxM, 0, mondaiData);
+                window.rawKotaeGroups.splice(idxM, 0, kotaeData);
+                window.kaitouran.splice(idxM, 0, kaitouranData);
+                logAdmin(`Added all [${idxM}]`);
+                window.saveToFirebase();
+            } else {
+                const list = getListByName(listName);
+                if (!list) return logAdmin('Error: List not found.');
+                const idx = p[1]==='f' ? list.length : parseInt(p[1]);
+                if (isNaN(idx)||idx<0) return logAdmin('Error: Invalid index.');
+                let data = p[3];
+                if (listName==='kotae') data = data.split(',');
+                if (listName==='hani')  data = parseInt(data);
+                list.splice(idx, 0, data);
+                logAdmin(`Added to ${listName} at [${idx}]`);
+                window.saveToFirebase();
+            }
+        }
+        else if (cmd === 'replace') {
+            const listName = p[2]?.toLowerCase();
+            if (listName === 'all') {
+                const mondaiData = p[3], kotaeData = p[4]?p[4].split(','):[], kaitouranData = p[5];
+                if (!mondaiData||!kotaeData.length||!kaitouranData) return logAdmin('Usage: replace <idx/f> all <mondai> <kotae> <kaitouran>');
+                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
+                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
+                window.rawMondai[idxM] = mondaiData;
+                window.rawKotaeGroups[idxM] = kotaeData;
+                window.kaitouran[idxM] = kaitouranData;
+                logAdmin(`Replaced all [${idxM}]`);
+                window.saveToFirebase();
+            } else {
+                const list = getListByName(listName);
+                if (!list) return logAdmin('Error: List not found.');
+                const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
+                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
+                let data = p[3];
+                if (listName==='kotae') data = data.split(',');
+                if (listName==='hani')  data = parseInt(data);
+                list[idx] = data;
+                logAdmin(`Replaced ${listName} [${idx}]`);
+                window.saveToFirebase();
+            }
+        }
+        else if (cmd === 'remove') {
+            const listName = p[2]?.toLowerCase();
+            if (listName === 'all') {
+                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
+                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
+                window.rawMondai.splice(idxM,1);
+                window.rawKotaeGroups.splice(idxM,1);
+                window.kaitouran.splice(idxM,1);
+                logAdmin(`Removed all [${idxM}]`);
+                window.saveToFirebase();
+            } else {
+                const list = getListByName(listName);
+                if (!list||list.length===0) return logAdmin('Error: List empty or not found.');
+                const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
+                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
+                list.splice(idx,1);
+                logAdmin(`Removed from ${listName} [${idx}]`);
+                window.saveToFirebase();
+            }
+        }
+        else {
+            logAdmin(`Unknown command: ${cmd}`);
+            logAdmin('Commands: exit, setpass, show, add, replace, remove');
+        }
+    }
+
+    // ===== Physical keyboard support =====
+    //
+    // Physical key mapping for the new keyboard spec:
+    //   Normal mode: A-Z uppercase, →(ArrowRight), Backspace, Enter, ;(Semicolon/+)
+    //   Shift mode:  a-z lowercase, 1-9 digits (subscript), →, Backspace, Enter, ;(+)
+    //   Shift toggle: physical Shift key
+
+    const ALLOWED_PHYSICAL = new Set([
+        'a','b','c','d','e','f','g','h','i','j','k','l','m',
+        'n','o','p','q','r','s','t','u','v','w','x','y','z',
+        '1','2','3','4','5','6','7','8','9',
+        'Enter', 'Backspace', 'Shift', 'ArrowRight', ';'
+    ]);
+
+    window.addEventListener('keydown', (e) => {
+        if (document.activeElement.id === 'admin-input') return;
+        e.preventDefault();
+
+        let key = e.key;
+
+        // Map physical shift key to our toggle
+        if (key === 'Shift') { handleInput('Shift'); return; }
+
+        // Normalise letter case to lowercase for routing; handleInput does case from isShift
+        if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
+
+        if (!ALLOWED_PHYSICAL.has(key)) return;
+        flashKey(key === ' ' ? ' ' : key);
+        handleInput(key);
+    });
+
+    // Expose globals needed by inline onclick handlers
+    window.handleInput          = handleInput;
+    window.setOrder             = setOrder;
+    window.setBaseStyle         = setBaseStyle;
+    window.setFinalStyle        = setFinalStyle;
+    window.goToStart            = goToStart;
+    window.closeMessageAndNext  = closeMessageAndNext;
+    window.pullGacha            = pullGacha;
+    window.mixGacha             = mixGacha;
+    window.tryAdminAccess       = tryAdminAccess;
+    window.processAdminCommand  = processAdminCommand;
+    window.renderVerList        = renderVerList;
+</script>
+</body>
+</html>
