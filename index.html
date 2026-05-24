@@ -202,6 +202,7 @@
             color: var(--disabled-key-color);
             cursor: not-allowed;
             box-shadow: 0 2px 0 #ccc;
+            pointer-events: none;
         }
         .key-special { background-color: var(--special-key-bg); flex: 1.5; }
         .key-wide { flex: 2; }
@@ -211,12 +212,16 @@
             color: #222; font-weight: bold;
         }
 
-        /* Sub-label shown on key (shift mode indicator) */
+        /* Sub-label: shows secondary character on key */
         .key-main { line-height: 1; }
         .key-sub {
-            font-size: 0.65em; color: #888; line-height: 1;
+            font-size: 0.6em; color: #888; line-height: 1;
         }
         .key.shift-active .key-sub { color: #555; }
+
+        /* Number row: top label = shift value, bottom = normal subscript */
+        .key-num .key-main { font-size: 1em; }
+        .key-num .key-sub  { font-size: 0.65em; color: #999; }
 
         /* ===== ALL END ===== */
         #allend-overlay {
@@ -254,8 +259,9 @@
 
         /* Shift mode indicator banner */
         #shift-banner {
-            position: fixed; top: calc(100% - var(--keyboard-total) - 28px); left: 0;
-            width: 100%; text-align: center;
+            position: fixed;
+            top: calc(100% - var(--keyboard-total) - 28px);
+            left: 0; width: 100%; text-align: center;
             font-size: 12px; font-weight: bold; letter-spacing: 1px;
             padding: 3px 0;
             transition: all 0.15s;
@@ -263,13 +269,13 @@
             display: none;
             pointer-events: none;
         }
-        #shift-banner.shift-on {
-            background: var(--shift-bg);
-            color: #333;
-        }
-        #shift-banner.shift-off {
+        #shift-banner.mode-normal {
             background: #e0e0e0;
             color: #555;
+        }
+        #shift-banner.mode-shift {
+            background: var(--shift-bg);
+            color: #333;
         }
     </style>
 </head>
@@ -332,31 +338,56 @@
     <div id="answer-area"></div>
 </div>
 
-<!-- Shift mode banner (shown above keyboard during game) -->
-<div id="shift-banner" class="shift-off">通常モード　A-Z / →</div>
+<!-- Shift mode banner -->
+<div id="shift-banner" class="mode-normal">通常モード　A-Z / ₁-₉ / →</div>
 
 <!--
-    KEYBOARD LAYOUT (2 modes):
+    KEYBOARD LAYOUT
 
-    NORMAL MODE (Shift OFF): uppercase A-Z, →, Backspace, Enter, ;(=+), Space
-    SHIFT MODE  (Shift ON):  lowercase a-z, 1-9, →, Backspace, Enter, ;(=+), Space
+    NORMAL MODE (isShift = false):
+      - A-Z (uppercase letters)
+      - Number row: DISABLED for letter input; shows subscript hint (₁-₉)
+      - →, Backspace, Enter, ;(+) always active
 
-    Number row (1-9): shown in shift mode as input digits, in normal mode disabled
-    → key always available
-    + shown as ; key always
+    SHIFT MODE (isShift = true):
+      - a-z (lowercase letters)
+      - Number row: ENABLED → inputs subscript digits ₁-₉  (wait, reversed per spec)
+      ... 
+
+    *** Per spec clarification ***:
+      通常モード: 大文字A-Z + 下付き文字₁-₉ (subscript digits)
+      Shiftモード: 小文字a-z + 通常数字1-9 (normal digits)
 -->
 <div class="keyboard" id="main-keyboard">
-    <!-- Number row (1-9): active only in shift mode -->
+    <!-- Number row: normal=subscript(₁-₉ input), shift=normal digits(1-9) -->
     <div class="row" id="num-row">
-        <button class="key key-num key-num-btn key-disabled" data-key="1" onclick="handleInput('1')"><span class="key-main">1</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="2" onclick="handleInput('2')"><span class="key-main">2</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="3" onclick="handleInput('3')"><span class="key-main">3</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="4" onclick="handleInput('4')"><span class="key-main">4</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="5" onclick="handleInput('5')"><span class="key-main">5</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="6" onclick="handleInput('6')"><span class="key-main">6</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="7" onclick="handleInput('7')"><span class="key-main">7</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="8" onclick="handleInput('8')"><span class="key-main">8</span></button>
-        <button class="key key-num key-num-btn key-disabled" data-key="9" onclick="handleInput('9')"><span class="key-main">9</span></button>
+        <button class="key key-num" id="num-1" data-key="1" onclick="handleInput('1')">
+            <span class="key-main" id="nkd-1">₁</span>
+        </button>
+        <button class="key key-num" id="num-2" data-key="2" onclick="handleInput('2')">
+            <span class="key-main" id="nkd-2">₂</span>
+        </button>
+        <button class="key key-num" id="num-3" data-key="3" onclick="handleInput('3')">
+            <span class="key-main" id="nkd-3">₃</span>
+        </button>
+        <button class="key key-num" id="num-4" data-key="4" onclick="handleInput('4')">
+            <span class="key-main" id="nkd-4">₄</span>
+        </button>
+        <button class="key key-num" id="num-5" data-key="5" onclick="handleInput('5')">
+            <span class="key-main" id="nkd-5">₅</span>
+        </button>
+        <button class="key key-num" id="num-6" data-key="6" onclick="handleInput('6')">
+            <span class="key-main" id="nkd-6">₆</span>
+        </button>
+        <button class="key key-num" id="num-7" data-key="7" onclick="handleInput('7')">
+            <span class="key-main" id="nkd-7">₇</span>
+        </button>
+        <button class="key key-num" id="num-8" data-key="8" onclick="handleInput('8')">
+            <span class="key-main" id="nkd-8">₈</span>
+        </button>
+        <button class="key key-num" id="num-9" data-key="9" onclick="handleInput('9')">
+            <span class="key-main" id="nkd-9">₉</span>
+        </button>
     </div>
     <!-- Row 1: Q-P -->
     <div class="row">
@@ -432,11 +463,11 @@
     onValue(dbRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            window.rawMondai   = data.mondai    || [];
-            window.rawKotaeGroups = data.kotae  || [];
-            window.hani_end    = data.hani      || [];
-            window.kaitouran   = data.kaitouran || [];
-            window.adminPass   = data.pass      || null;  // "pass" field per instructions
+            window.rawMondai      = data.mondai    || [];
+            window.rawKotaeGroups = data.kotae     || [];
+            window.hani_end       = data.hani      || [];
+            window.kaitouran      = data.kaitouran || [];
+            window.adminPass      = data.pass      || null;
             renderVerList();
         }
     });
@@ -457,10 +488,15 @@
     let playStyle = 'once', subStyle = 'gacha', playOrder = 'normal';
     let currentPool = [], currentPos = 0;
     let inputs = [], activeInputIdx = 0;
-    let isShift = false;   // true = shift mode (lowercase + numbers)
+    let isShift = false;
+    // isShift = false → 通常モード: 大文字A-Z + 下付き₁-₉
+    // isShift = true  → Shiftモード: 小文字a-z + 通常数字1-9
     let isWaiting = false;
     let correctCount = 0, totalQuestions = 0;
     let retryPool = [], wrongAnswers = [];
+
+    const SUB_DIGITS = ['₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+    const NRM_DIGITS = ['1','2','3','4','5','6','7','8','9'];
 
     const GACHA_TABLE = [
         { src: "spch/Cn_transparent.png", prob: 40 },
@@ -470,18 +506,7 @@
         { src: "spch/Bn_transparent.png", prob: 2  }
     ];
 
-    // ===== Keyboard mode logic =====
-    //
-    // NORMAL MODE (isShift = false):
-    //   - A-Z (uppercase) → input uppercase letters
-    //   - 1-9 keys DISABLED
-    //   - →, Backspace, Enter, ; always active
-    //
-    // SHIFT MODE (isShift = true):
-    //   - a-z (lowercase) → input lowercase letters
-    //   - 1-9 enabled → input digits
-    //   - →, Backspace, Enter, ; always active
-
+    // ===== Keyboard display update =====
     function updateKeyboardDisplay() {
         const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
         letters.forEach(c => {
@@ -497,33 +522,37 @@
             shiftKey.classList.remove('shift-active');
         }
 
-        // Number keys: enabled in shift mode, disabled in normal mode
-        document.querySelectorAll('.key-num-btn').forEach(btn => {
-            if (isShift) {
-                btn.classList.remove('key-disabled');
-            } else {
-                btn.classList.add('key-disabled');
-            }
-        });
+        // Number keys:
+        //   通常モード (isShift=false): shows ₁-₉ → inputs subscript
+        //   Shiftモード (isShift=true): shows 1-9 → inputs normal digits
+        for (let i = 1; i <= 9; i++) {
+            const el = document.getElementById(`nkd-${i}`);
+            if (el) el.textContent = isShift ? String(i) : SUB_DIGITS[i - 1];
+            // Number keys are always enabled (both modes use them differently)
+            const btn = document.getElementById(`num-${i}`);
+            if (btn) btn.classList.remove('key-disabled');
+        }
 
         // Banner
         const banner = document.getElementById('shift-banner');
         if (isShift) {
-            banner.className = 'shift-off'; // reuse class for visual; we use separate logic
-            banner.style.background = 'var(--shift-bg)';
-            banner.style.color = '#333';
+            banner.className = 'mode-shift';
             banner.textContent = 'Shiftモード　a-z / 1-9 / →';
         } else {
-            banner.style.background = '#e0e0e0';
-            banner.style.color = '#555';
-            banner.textContent = '通常モード　A-Z / →';
+            banner.className = 'mode-normal';
+            banner.textContent = '通常モード　A-Z / ₁-₉ / →';
         }
     }
 
     function flashKey(key) {
         if (key === 'Shift') return;
-        // Find button by data-key
-        const btn = document.querySelector(`.key[data-key="${CSS.escape(key)}"]`);
+        let selector;
+        if (/^[1-9]$/.test(key)) {
+            selector = `#num-${key}`;
+        } else {
+            selector = `.key[data-key="${CSS.escape(key)}"]`;
+        }
+        const btn = document.querySelector(selector);
         if (!btn || btn.classList.contains('key-disabled')) return;
         btn.classList.add('active');
         setTimeout(() => btn.classList.remove('active'), 150);
@@ -540,9 +569,6 @@
             updateKeyboardDisplay();
             return;
         }
-
-        // Numbers only in shift mode
-        if (/^[1-9]$/.test(key) && !isShift) return;
 
         flashKey(key);
 
@@ -565,16 +591,19 @@
             inputs[activeInputIdx] += '→';
         } else if (key === ';') {
             inputs[activeInputIdx] += '+';
-        } else if (/^[1-9]$/.test(key) && isShift) {
-            // subscript digits (₁-₉)
-            const SUB = ['₁','₂','₃','₄','₅','₆','₇','₈','₉'];
-            inputs[activeInputIdx] += SUB[parseInt(key) - 1];
+        } else if (/^[1-9]$/.test(key)) {
+            const n = parseInt(key) - 1;
+            if (isShift) {
+                // Shiftモード → 通常数字
+                inputs[activeInputIdx] += NRM_DIGITS[n];
+            } else {
+                // 通常モード → 下付き文字
+                inputs[activeInputIdx] += SUB_DIGITS[n];
+            }
         } else if (/^[a-zA-Z]$/.test(key)) {
-            // In shift mode, always lowercase; normal mode always uppercase
+            // isShift=true → lowercase; isShift=false → uppercase
             inputs[activeInputIdx] += isShift ? key.toLowerCase() : key.toUpperCase();
-            // Auto-release shift after one letter? No — toggle design means it stays.
         } else {
-            // Unrecognized / disabled key, ignore
             return;
         }
 
@@ -818,8 +847,7 @@
     }
 
     function tryAdminAccess() {
-        const pass = window.adminPass;
-        if (prompt('Pass?') === String(pass)) showScreen('admin-screen');
+        if (prompt('Pass?') === String(window.adminPass)) showScreen('admin-screen');
     }
 
     // ===== Admin Console =====
@@ -939,16 +967,23 @@
 
     // ===== Physical keyboard support =====
     //
-    // Physical key mapping for the new keyboard spec:
-    //   Normal mode: A-Z uppercase, →(ArrowRight), Backspace, Enter, ;(Semicolon/+)
-    //   Shift mode:  a-z lowercase, 1-9 digits (subscript), →, Backspace, Enter, ;(+)
-    //   Shift toggle: physical Shift key
+    // 通常モード (isShift=false):
+    //   A-Z → uppercase letters
+    //   1-9 → subscript digits ₁-₉
+    //   Shift → toggle to Shiftモード
+    //
+    // Shiftモード (isShift=true):
+    //   a-z → lowercase letters
+    //   1-9 → normal digits 1-9
+    //   Shift → toggle to 通常モード
+    //
+    // Both modes: ArrowRight→, Backspace, Enter, ;(+), Space
 
     const ALLOWED_PHYSICAL = new Set([
         'a','b','c','d','e','f','g','h','i','j','k','l','m',
         'n','o','p','q','r','s','t','u','v','w','x','y','z',
         '1','2','3','4','5','6','7','8','9',
-        'Enter', 'Backspace', 'Shift', 'ArrowRight', ';'
+        'Enter', 'Backspace', 'Shift', 'ArrowRight', ';', ' '
     ]);
 
     window.addEventListener('keydown', (e) => {
@@ -957,18 +992,16 @@
 
         let key = e.key;
 
-        // Map physical shift key to our toggle
         if (key === 'Shift') { handleInput('Shift'); return; }
 
-        // Normalise letter case to lowercase for routing; handleInput does case from isShift
+        // Normalise letter to lowercase; handleInput applies case from isShift state
         if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
 
         if (!ALLOWED_PHYSICAL.has(key)) return;
-        flashKey(key === ' ' ? ' ' : key);
         handleInput(key);
     });
 
-    // Expose globals needed by inline onclick handlers
+    // Expose globals for inline onclick handlers
     window.handleInput          = handleInput;
     window.setOrder             = setOrder;
     window.setBaseStyle         = setBaseStyle;
