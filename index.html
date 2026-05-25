@@ -847,7 +847,14 @@
     }
 
     function tryAdminAccess() {
-        if (prompt('Pass?') === String(window.adminPass)) showScreen('admin-screen');
+        const entered = prompt('Pass?');
+        if (entered === null) return; // キャンセル
+        const stored = String(window.adminPass ?? '');
+        if (entered === stored) {
+            showScreen('admin-screen');
+        } else {
+            alert(`NG（DB値: "${stored}"）`);
+        }
     }
 
     // ===== Admin Console =====
