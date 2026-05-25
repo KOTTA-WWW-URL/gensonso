@@ -899,21 +899,31 @@
     }
 
     // ===== Render =====
+    const VER_LABELS = [
+        'Ver.1　元素記号を答える',
+        'Ver.2　元素名を答える',
+        'Ver.3　分子を化学式で答える',
+        'Ver.4　反応を化学式で答える',
+    ];
+
     function renderVerList() {
         const listEl = document.getElementById('ver-list');
         if (!listEl) return;
         listEl.innerHTML = '';
-        window.hani_end.forEach((val, i) => {
+        // 最大4バージョンまで表示
+        const count = Math.min(window.hani_end.length, 4);
+        for (let i = 0; i < count; i++) {
+            const val = window.hani_end[i];
             const btn = document.createElement('button');
             btn.className = 'menu-btn';
-            btn.innerText = `Ver ${i + 1}.0`;
+            btn.innerText = VER_LABELS[i] || `Ver.${i + 1}`;
             btn.onclick = () => {
                 const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
                 currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
                 showScreen('order-screen');
             };
             listEl.appendChild(btn);
-        });
+        }
     }
 
     function setOrder(o) { playOrder = o; showScreen('style-screen'); }
