@@ -452,7 +452,8 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const dbRef = ref(db, 'mondaiData');
+    const dbRef   = ref(db, 'mondaiData');
+    const rootRef = ref(db, '/');
 
     window.rawMondai = [];
     window.rawKotaeGroups = [];
@@ -460,16 +461,23 @@
     window.kaitouran = [];
     window.adminPass = null;
 
-    onValue(dbRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            window.rawMondai      = data.mondai    || [];
-            window.rawKotaeGroups = data.kotae     || [];
-            window.hani_end       = data.hani      || [];
-            window.kaitouran      = data.kaitouran || [];
-            window.adminPass      = data.pass      || null;
-            renderVerList();
+    // ルート全体を監視: 問題データは mondaiData/, passはルート直下 or mondaiData/pass 両対応
+    onValue(rootRef, (snapshot) => {
+        const root = snapshot.val() || {};
+        const data = root.mondaiData || {};
+        window.rawMondai      = data.mondai    || [];
+        window.rawKotaeGroups = data.kotae     || [];
+        window.hani_end       = data.hani      || [];
+        window.kaitouran      = data.kaitouran || [];
+        // ルート直下の pass を優先、なければ mondaiData/pass
+        if (root.pass !== undefined && root.pass !== null) {
+            window.adminPass = root.pass;
+        } else if (data.pass !== undefined && data.pass !== null) {
+            window.adminPass = data.pass;
+        } else {
+            window.adminPass = null;
         }
+        renderVerList();
     });
 
     window.saveToFirebase = function() {
@@ -477,8 +485,7 @@
             mondai:    window.rawMondai,
             kotae:     window.rawKotaeGroups,
             hani:      window.hani_end,
-            kaitouran: window.kaitouran,
-            pass:      window.adminPass
+            kaitouran: window.kaitouran
         }).then(() => console.log("Cloud Updated!"));
     };
 </script>
