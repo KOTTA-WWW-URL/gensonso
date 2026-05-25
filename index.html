@@ -258,6 +258,34 @@
         }
 
 
+
+        /* 変換候補パネル */
+        #henkan-panel {
+            position: fixed;
+            bottom: var(--keyboard-total);
+            left: 0; width: 100%;
+            background: #fff;
+            border-top: 2px solid #007bff;
+            display: none;
+            flex-wrap: wrap;
+            z-index: 20;
+            max-height: 44px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+        }
+        .henkan-item {
+            display: inline-block;
+            padding: 8px 14px;
+            font-size: 16px;
+            cursor: pointer;
+            border-right: 1px solid #ddd;
+            flex-shrink: 0;
+        }
+        .henkan-item:active, .henkan-item.selected {
+            background: #007bff;
+            color: white;
+        }
         /* 全角半角ボタン */
         .key.zenkaku-active {
             background-color: #28a745 !important;
@@ -338,6 +366,8 @@
     <div id="admin-console"></div>
     <input type="text" id="admin-input" placeholder="Type command..." onkeydown="processAdminCommand(event)">
 </div>
+
+<div id="henkan-panel"></div>
 
 <div id="game-container">
     <div id="mondai-display"></div>
@@ -505,6 +535,10 @@
     let isShift = false;
     let isZenkaku = false;  // true = ローマ字→ひらがな変換モード
     let romaBuffer = '';    // ローマ字バッファ
+    let henkanMode = false; // 変換候補表示中
+    let henkanBase = '';    // 変換前のひらがな（入力欄末尾）
+    let henkanList = [];    // 変換候補リスト
+    let henkanIdx  = 0;     // 現在選択中の候補インデックス
     // isShift = false → 通常モード: 大文字A-Z + 下付き₁-₉
     // isShift = true  → Shiftモード: 小文字a-z + 通常数字1-9
     let isWaiting = false;
@@ -686,6 +720,69 @@
         if (converted) inputs[activeInputIdx] += converted;
     }
 
+
+    // ===== Google IME API による漢字変換 =====
+    async function fetchHenkan(hiragana) {
+        try {
+            const url = `https://www.google.com/transliterate?langpair=ja-Hira|ja&text=${encodeURIComponent(hiragana + ',')}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            // json: [[original, [候補1, 候補2, ...]], ...]
+            const candidates = [];
+            json.forEach(seg => { if (seg[1]) seg[1].forEach(c => { if (!candidates.includes(c)) candidates.push(c); }); });
+            return candidates.length > 0 ? candidates : [hiragana];
+        } catch(e) {
+            return [hiragana];
+        }
+    }
+
+    function showHenkanPanel(candidates, base) {
+        henkanMode = true;
+        henkanList = candidates;
+        henkanBase = base;
+        henkanIdx  = 0;
+        const panel = document.getElementById('henkan-panel');
+        panel.innerHTML = '';
+        candidates.forEach((c, i) => {
+            const el = document.createElement('div');
+            el.className = 'henkan-item' + (i === 0 ? ' selected' : '');
+            el.textContent = c;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); selectHenkan(i); }, {passive: false});
+            el.addEventListener('mousedown',  (e) => { e.preventDefault(); selectHenkan(i); });
+            panel.appendChild(el);
+        });
+        panel.style.display = 'flex';
+    }
+
+    function selectHenkan(idx) {
+        const chosen = henkanList[idx];
+        // 入力末尾のhenkanBaseをchosenに置換
+        const cur = inputs[activeInputIdx];
+        if (cur.endsWith(henkanBase)) {
+            inputs[activeInputIdx] = cur.slice(0, cur.length - henkanBase.length) + chosen;
+        } else {
+            inputs[activeInputIdx] += chosen;
+        }
+        closeHenkanPanel();
+        updateDisplay();
+    }
+
+    function closeHenkanPanel() {
+        henkanMode = false;
+        henkanList = [];
+        henkanBase = '';
+        henkanIdx  = 0;
+        const panel = document.getElementById('henkan-panel');
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+    }
+
+    // 変換対象: 入力末尾のひらがな列を取得
+    function getTrailingHiragana(str) {
+        const m = str.match(/[\u3041-\u3096ー]+$/);
+        return m ? m[0] : '';
+    }
+
     // ===== Input handler =====
     function handleInput(key) {
         if (isWaiting) return;
@@ -713,6 +810,8 @@
         flashKey(key);
 
         if (key === 'Backspace') {
+            // 変換候補表示中はパネルを閉じる
+            if (henkanMode) { closeHenkanPanel(); updateDisplay(); return; }
             // バッファに文字があればバッファを消す
             if (isZenkaku && romaBuffer.length > 0) {
                 romaBuffer = romaBuffer.slice(0, -1);
@@ -722,6 +821,11 @@
                 inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
             }
         } else if (key === 'Enter') {
+            // 変換候補が出ているなら確定
+            if (henkanMode) {
+                selectHenkan(henkanIdx);
+                return;
+            }
             // Enterでバッファを強制フラッシュ
             if (isZenkaku && romaBuffer.length > 0) {
                 const flushed = flushRomaBuffer(true);
@@ -734,10 +838,32 @@
                 checkAnswer();
             }
         } else if (key === ' ') {
-            if (isZenkaku && romaBuffer.length > 0) {
-                const flushed = flushRomaBuffer(true);
-                if (flushed) inputs[activeInputIdx] += flushed;
-                romaBuffer = '';
+            if (isZenkaku) {
+                // バッファ残りをフラッシュ
+                if (romaBuffer.length > 0) {
+                    const flushed = flushRomaBuffer(true);
+                    if (flushed) inputs[activeInputIdx] += flushed;
+                    romaBuffer = '';
+                    updateDisplay();
+                }
+                if (henkanMode) {
+                    // 変換中: 次の候補へ
+                    henkanIdx = (henkanIdx + 1) % henkanList.length;
+                    document.querySelectorAll('.henkan-item').forEach((el, i) => {
+                        el.classList.toggle('selected', i === henkanIdx);
+                    });
+                    // 選択ハイライトのみ、確定はしない（タップかEnterで確定）
+                } else {
+                    // 末尾ひらがなを取得してGoogle変換
+                    const hira = getTrailingHiragana(inputs[activeInputIdx]);
+                    if (hira.length > 0) {
+                        fetchHenkan(hira).then(candidates => {
+                            showHenkanPanel(candidates, hira);
+                            updateDisplay();
+                        });
+                    }
+                }
+                return; // updateDisplayは非同期内で
             }
             inputs[activeInputIdx] += ' ';
             if (activeInputIdx < inputs.length - 1) activeInputIdx++;
@@ -808,6 +934,7 @@
         isShift = false;
         isZenkaku = false;
         romaBuffer = '';
+        closeHenkanPanel();
         const zk = document.getElementById('zenkaku-key');
         if (zk) { zk.textContent = '全角'; zk.classList.remove('zenkaku-active'); }
         updateKeyboardDisplay();
@@ -1171,13 +1298,21 @@
 
     window.addEventListener('keydown', (e) => {
         if (document.activeElement.id === 'admin-input') return;
-        e.preventDefault();
 
         let key = e.key;
 
-        if (key === 'Shift') { handleInput('Shift'); return; }
+        // 全角半角キー (物理キーボード)
+        if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') {
+            e.preventDefault();
+            handleInput('Zenkaku');
+            return;
+        }
 
-        // Normalise letter to lowercase; handleInput applies case from isShift state
+        if (key === 'Shift') { e.preventDefault(); handleInput('Shift'); return; }
+
+        e.preventDefault();
+
+        // Normalise letter to lowercase
         if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
 
         if (!ALLOWED_PHYSICAL.has(key)) return;
