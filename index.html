@@ -257,6 +257,12 @@
             background: #ffe0e0; border-radius: 4px; padding: 1px 5px; color: #c0392b;
         }
 
+
+        /* 全角半角ボタン */
+        .key.zenkaku-active {
+            background-color: #28a745 !important;
+            color: white; font-weight: bold;
+        }
         /* Shift mode indicator banner */
         #shift-banner {
             position: fixed;
@@ -426,8 +432,9 @@
         <button class="key" data-key="m" onclick="handleInput('m')"><span class="key-main" id="kd-m">M</span></button>
         <button class="key key-special" data-key="Backspace" onclick="handleInput('Backspace')">⌫</button>
     </div>
-    <!-- Row 4: →, ;(+), Space, Enter -->
+    <!-- Row 4: 全角半角, →, ;(+), Space, Enter -->
     <div class="row">
+        <button class="key key-special" id="zenkaku-key" onclick="handleInput('Zenkaku')">全角</button>
         <button class="key key-wide" data-key="ArrowRight" onclick="handleInput('ArrowRight')">→</button>
         <button class="key key-wide" data-key=";" onclick="handleInput(';')">;</button>
         <button class="key key-space" data-key=" " onclick="handleInput(' ')">Space</button>
@@ -496,6 +503,8 @@
     let currentPool = [], currentPos = 0;
     let inputs = [], activeInputIdx = 0;
     let isShift = false;
+    let isZenkaku = false;  // true = ローマ字→ひらがな変換モード
+    let romaBuffer = '';    // ローマ字バッファ
     // isShift = false → 通常モード: 大文字A-Z + 下付き₁-₉
     // isShift = true  → Shiftモード: 小文字a-z + 通常数字1-9
     let isWaiting = false;
@@ -565,6 +574,118 @@
         setTimeout(() => btn.classList.remove('active'), 150);
     }
 
+
+    // ===== ローマ字→ひらがな変換テーブル =====
+    const ROMA_TABLE = [
+        // 3文字優先
+        ['chi','ち'],['tsu','つ'],['sha','しゃ'],['shi','し'],['shu','しゅ'],['sho','しょ'],
+        ['tya','ちゃ'],['tyi','ちぃ'],['tyu','ちゅ'],['tye','ちぇ'],['tyo','ちょ'],
+        ['cha','ちゃ'],['chu','ちゅ'],['cho','ちょ'],['che','ちぇ'],
+        ['dya','ぢゃ'],['dyu','ぢゅ'],['dyo','ぢょ'],
+        ['nya','にゃ'],['nyu','にゅ'],['nyo','にょ'],
+        ['hya','ひゃ'],['hyu','ひゅ'],['hyo','ひょ'],
+        ['mya','みゃ'],['myu','みゅ'],['myo','みょ'],
+        ['rya','りゃ'],['ryu','りゅ'],['ryo','りょ'],
+        ['gya','ぎゃ'],['gyu','ぎゅ'],['gyo','ぎょ'],
+        ['bya','びゃ'],['byu','びゅ'],['byo','びょ'],
+        ['pya','ぴゃ'],['pyu','ぴゅ'],['pyo','ぴょ'],
+        ['kya','きゃ'],['kyu','きゅ'],['kyo','きょ'],
+        ['sya','しゃ'],['syu','しゅ'],['syo','しょ'],
+        ['zya','じゃ'],['zyu','じゅ'],['zyo','じょ'],
+        ['ja' ,'じゃ'],['ju' ,'じゅ'],['jo' ,'じょ'],['je','じぇ'],
+        ['dzu','づ'],
+        // 2文字
+        ['ka','か'],['ki','き'],['ku','く'],['ke','け'],['ko','こ'],
+        ['sa','さ'],['si','し'],['su','す'],['se','せ'],['so','そ'],
+        ['ta','た'],['ti','ち'],['te','て'],['to','と'],
+        ['na','な'],['ni','に'],['nu','ぬ'],['ne','ね'],['no','の'],
+        ['ha','は'],['hi','ひ'],['hu','ふ'],['he','へ'],['ho','ほ'],
+        ['ma','ま'],['mi','み'],['mu','む'],['me','め'],['mo','も'],
+        ['ya','や'],['yu','ゆ'],['yo','よ'],
+        ['ra','ら'],['ri','り'],['ru','る'],['re','れ'],['ro','ろ'],
+        ['wa','わ'],['wi','ゐ'],['we','ゑ'],['wo','を'],
+        ['ga','が'],['gi','ぎ'],['gu','ぐ'],['ge','げ'],['go','ご'],
+        ['za','ざ'],['zi','じ'],['zu','ず'],['ze','ぜ'],['zo','ぞ'],
+        ['da','だ'],['di','ぢ'],['du','づ'],['de','で'],['do','ど'],
+        ['ba','ば'],['bi','び'],['bu','ぶ'],['be','べ'],['bo','ぼ'],
+        ['pa','ぱ'],['pi','ぴ'],['pu','ぷ'],['pe','ぺ'],['po','ぽ'],
+        ['fa','ふぁ'],['fi','ふぃ'],['fu','ふ'],['fe','ふぇ'],['fo','ふぉ'],
+        ['xa','ぁ'],['xi','ぃ'],['xu','ぅ'],['xe','ぇ'],['xo','ぉ'],
+        ['xya','ゃ'],['xyu','ゅ'],['xyo','ょ'],['xtu','っ'],['xtsu','っ'],
+        ['la','ぁ'],['li','ぃ'],['lu','ぅ'],['le','ぇ'],['lo','ぉ'],
+        ['lya','ゃ'],['lyu','ゅ'],['lyo','ょ'],['ltu','っ'],['ltsu','っ'],
+        ['ji','じ'],['ju','じゅ'],
+        ['va','ヴぁ'],['vi','ヴぃ'],['vu','ヴ'],['ve','ヴぇ'],['vo','ヴぉ'],
+        // 1文字母音
+        ['a','あ'],['i','い'],['u','う'],['e','え'],['o','お'],
+        ['n','ん'],
+    ];
+
+    // ローマ字バッファを変換。変換できた文字を返し、残りをバッファに残す
+    function tryConvertRoma(buf) {
+        // っ: 子音が2つ続いた場合 (nn以外)
+        if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') {
+            return { out: 'っ', rest: buf.slice(1) };
+        }
+        // 長い順にマッチ試行
+        for (const [roma, hira] of ROMA_TABLE) {
+            if (buf.startsWith(roma)) {
+                return { out: hira, rest: buf.slice(roma.length) };
+            }
+        }
+        // バッファが長くなりすぎたら先頭を捨てる
+        if (buf.length >= 4) {
+            return { out: buf[0], rest: buf.slice(1) };
+        }
+        return null; // まだ確定できない
+    }
+
+    function flushRomaBuffer(forceFlush) {
+        let result = '';
+        // 'n' + 非母音/非nなら「ん」確定
+        if (romaBuffer === 'n') {
+            if (forceFlush) { result = 'ん'; romaBuffer = ''; }
+        } else {
+            const res = tryConvertRoma(romaBuffer);
+            if (res) {
+                result = res.out;
+                romaBuffer = res.rest;
+                // 再帰的に残りも変換
+                if (romaBuffer.length > 0) {
+                    const more = flushRomaBuffer(false);
+                    result += more;
+                }
+            }
+        }
+        return result;
+    }
+
+    function inputRomaChar(c) {
+        const letter = c.toLowerCase();
+        const isVowel = 'aiueo'.includes(letter);
+
+        // 'n' の特別処理: 次が母音でも'n'でもない子音なら「ん」確定
+        if (romaBuffer === 'n' && letter !== 'n' && !isVowel) {
+            inputs[activeInputIdx] += 'ん';
+            romaBuffer = '';
+        }
+
+        romaBuffer += letter;
+
+        // 変換を試みる
+        let converted = '';
+        while (romaBuffer.length > 0) {
+            const res = tryConvertRoma(romaBuffer);
+            if (res) {
+                converted += res.out;
+                romaBuffer = res.rest;
+            } else {
+                break;
+            }
+        }
+        if (converted) inputs[activeInputIdx] += converted;
+    }
+
     // ===== Input handler =====
     function handleInput(key) {
         if (isWaiting) return;
@@ -577,39 +698,73 @@
             return;
         }
 
+        if (key === 'Zenkaku') {
+            isZenkaku = !isZenkaku;
+            romaBuffer = '';
+            const zk = document.getElementById('zenkaku-key');
+            if (zk) {
+                zk.textContent = isZenkaku ? 'かな' : '全角';
+                isZenkaku ? zk.classList.add('zenkaku-active') : zk.classList.remove('zenkaku-active');
+            }
+            updateKeyboardDisplay();
+            return;
+        }
+
         flashKey(key);
 
         if (key === 'Backspace') {
-            if (inputs[activeInputIdx] === '') {
+            // バッファに文字があればバッファを消す
+            if (isZenkaku && romaBuffer.length > 0) {
+                romaBuffer = romaBuffer.slice(0, -1);
+            } else if (inputs[activeInputIdx] === '') {
                 if (activeInputIdx > 0) activeInputIdx--;
             } else {
                 inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
             }
         } else if (key === 'Enter') {
+            // Enterでバッファを強制フラッシュ
+            if (isZenkaku && romaBuffer.length > 0) {
+                const flushed = flushRomaBuffer(true);
+                if (flushed) inputs[activeInputIdx] += flushed;
+                romaBuffer = '';
+            }
             if (inputs.length > 1 && activeInputIdx < inputs.length - 1) {
                 activeInputIdx++;
             } else {
                 checkAnswer();
             }
         } else if (key === ' ') {
+            if (isZenkaku && romaBuffer.length > 0) {
+                const flushed = flushRomaBuffer(true);
+                if (flushed) inputs[activeInputIdx] += flushed;
+                romaBuffer = '';
+            }
             inputs[activeInputIdx] += ' ';
             if (activeInputIdx < inputs.length - 1) activeInputIdx++;
         } else if (key === 'ArrowRight') {
+            if (isZenkaku && romaBuffer.length > 0) {
+                const flushed = flushRomaBuffer(true);
+                if (flushed) inputs[activeInputIdx] += flushed;
+                romaBuffer = '';
+            }
             inputs[activeInputIdx] += '→';
         } else if (key === ';') {
             inputs[activeInputIdx] += '+';
         } else if (/^[1-9]$/.test(key)) {
             const n = parseInt(key) - 1;
             if (isShift) {
-                // Shiftモード → 通常数字
                 inputs[activeInputIdx] += NRM_DIGITS[n];
             } else {
-                // 通常モード → 下付き文字
                 inputs[activeInputIdx] += SUB_DIGITS[n];
             }
         } else if (/^[a-zA-Z]$/.test(key)) {
-            // isShift=true → lowercase; isShift=false → uppercase
-            inputs[activeInputIdx] += isShift ? key.toLowerCase() : key.toUpperCase();
+            if (isZenkaku) {
+                // ローマ字モード: 常に小文字として処理
+                inputRomaChar(key.toLowerCase());
+            } else {
+                // 通常/Shiftモード
+                inputs[activeInputIdx] += isShift ? key.toLowerCase() : key.toUpperCase();
+            }
         } else {
             return;
         }
@@ -651,6 +806,10 @@
         document.getElementById('main-keyboard').style.display = 'block';
         document.getElementById('shift-banner').style.display = 'block';
         isShift = false;
+        isZenkaku = false;
+        romaBuffer = '';
+        const zk = document.getElementById('zenkaku-key');
+        if (zk) { zk.textContent = '全角'; zk.classList.remove('zenkaku-active'); }
         updateKeyboardDisplay();
         loadQuestion();
     }
@@ -695,13 +854,23 @@
             b.innerHTML = '';
             if (i === activeInputIdx) {
                 b.classList.add('active-box');
-                b.innerText = v.replace(/ /g, '\u00A0');
                 b.style.color = '#007bff';
+                // 確定済みテキスト
+                const confirmed = document.createElement('span');
+                confirmed.textContent = v.replace(/ /g, ' ');
+                b.appendChild(confirmed);
+                // 未確定ローマ字バッファ（下線付き）
+                if (isZenkaku && romaBuffer.length > 0) {
+                    const pending = document.createElement('span');
+                    pending.textContent = romaBuffer;
+                    pending.style.cssText = 'text-decoration: underline; color: #0056b3; font-style: italic;';
+                    b.appendChild(pending);
+                }
                 const c = document.createElement('span');
                 c.className = 'cursor';
                 b.appendChild(c);
             } else {
-                b.innerText = (v || '').replace(/ /g, '\u00A0');
+                b.innerText = (v || '').replace(/ /g, ' ');
                 b.style.color = v ? '#333' : '#ccc';
             }
         });
