@@ -212,14 +212,13 @@
             color: #222; font-weight: bold;
         }
 
-        /* Sub-label: shows secondary character on key */
+        /* Sub-label */
         .key-main { line-height: 1; }
         .key-sub {
             font-size: 0.6em; color: #888; line-height: 1;
         }
         .key.shift-active .key-sub { color: #555; }
 
-        /* Number row: top label = shift value, bottom = normal subscript */
         .key-num .key-main { font-size: 1em; }
         .key-num .key-sub  { font-size: 0.65em; color: #999; }
 
@@ -257,8 +256,6 @@
             background: #ffe0e0; border-radius: 4px; padding: 1px 5px; color: #c0392b;
         }
 
-
-
         /* 変換候補パネル */
         #henkan-panel {
             position: fixed;
@@ -286,11 +283,7 @@
             background: #007bff;
             color: white;
         }
-        /* 全角半角ボタン */
-        .key.zenkaku-active {
-            background-color: #28a745 !important;
-            color: white; font-weight: bold;
-        }
+
         /* Shift mode indicator banner */
         #shift-banner {
             position: fixed;
@@ -375,27 +368,21 @@
 </div>
 
 <!-- Shift mode banner -->
-<div id="shift-banner" class="mode-normal">通常モード　A-Z / ₁-₉ / →</div>
+<div id="shift-banner" class="mode-normal">通常モード　a-z / ₁-₉</div>
 
 <!--
     KEYBOARD LAYOUT
 
-    NORMAL MODE (isShift = false):
-      - A-Z (uppercase letters)
-      - Number row: DISABLED for letter input; shows subscript hint (₁-₉)
-      - →, Backspace, Enter, ;(+) always active
+    通常モード (isShift = false):
+      - a-z (小文字)
+      - Number row: 下付き文字 ₁-₉ を入力
 
-    SHIFT MODE (isShift = true):
-      - a-z (lowercase letters)
-      - Number row: ENABLED → inputs subscript digits ₁-₉  (wait, reversed per spec)
-      ... 
-
-    *** Per spec clarification ***:
-      通常モード: 大文字A-Z + 下付き文字₁-₉ (subscript digits)
-      Shiftモード: 小文字a-z + 通常数字1-9 (normal digits)
+    Shiftモード (isShift = true):
+      - A-Z (大文字)
+      - Number row: 通常数字 1-9 を入力
 -->
 <div class="keyboard" id="main-keyboard">
-    <!-- Number row: normal=subscript(₁-₉ input), shift=normal digits(1-9) -->
+    <!-- Number row -->
     <div class="row" id="num-row">
         <button class="key key-num" id="num-1" data-key="1" onclick="handleInput('1')">
             <span class="key-main" id="nkd-1">₁</span>
@@ -427,47 +414,46 @@
     </div>
     <!-- Row 1: Q-P -->
     <div class="row">
-        <button class="key" data-key="q" onclick="handleInput('q')"><span class="key-main" id="kd-q">Q</span></button>
-        <button class="key" data-key="w" onclick="handleInput('w')"><span class="key-main" id="kd-w">W</span></button>
-        <button class="key" data-key="e" onclick="handleInput('e')"><span class="key-main" id="kd-e">E</span></button>
-        <button class="key" data-key="r" onclick="handleInput('r')"><span class="key-main" id="kd-r">R</span></button>
-        <button class="key" data-key="t" onclick="handleInput('t')"><span class="key-main" id="kd-t">T</span></button>
-        <button class="key" data-key="y" onclick="handleInput('y')"><span class="key-main" id="kd-y">Y</span></button>
-        <button class="key" data-key="u" onclick="handleInput('u')"><span class="key-main" id="kd-u">U</span></button>
-        <button class="key" data-key="i" onclick="handleInput('i')"><span class="key-main" id="kd-i">I</span></button>
-        <button class="key" data-key="o" onclick="handleInput('o')"><span class="key-main" id="kd-o">O</span></button>
-        <button class="key" data-key="p" onclick="handleInput('p')"><span class="key-main" id="kd-p">P</span></button>
+        <button class="key" data-key="q" onclick="handleInput('q')"><span class="key-main" id="kd-q">q</span></button>
+        <button class="key" data-key="w" onclick="handleInput('w')"><span class="key-main" id="kd-w">w</span></button>
+        <button class="key" data-key="e" onclick="handleInput('e')"><span class="key-main" id="kd-e">e</span></button>
+        <button class="key" data-key="r" onclick="handleInput('r')"><span class="key-main" id="kd-r">r</span></button>
+        <button class="key" data-key="t" onclick="handleInput('t')"><span class="key-main" id="kd-t">t</span></button>
+        <button class="key" data-key="y" onclick="handleInput('y')"><span class="key-main" id="kd-y">y</span></button>
+        <button class="key" data-key="u" onclick="handleInput('u')"><span class="key-main" id="kd-u">u</span></button>
+        <button class="key" data-key="i" onclick="handleInput('i')"><span class="key-main" id="kd-i">i</span></button>
+        <button class="key" data-key="o" onclick="handleInput('o')"><span class="key-main" id="kd-o">o</span></button>
+        <button class="key" data-key="p" onclick="handleInput('p')"><span class="key-main" id="kd-p">p</span></button>
     </div>
     <!-- Row 2: A-L -->
     <div class="row">
-        <button class="key" data-key="a" onclick="handleInput('a')"><span class="key-main" id="kd-a">A</span></button>
-        <button class="key" data-key="s" onclick="handleInput('s')"><span class="key-main" id="kd-s">S</span></button>
-        <button class="key" data-key="d" onclick="handleInput('d')"><span class="key-main" id="kd-d">D</span></button>
-        <button class="key" data-key="f" onclick="handleInput('f')"><span class="key-main" id="kd-f">F</span></button>
-        <button class="key" data-key="g" onclick="handleInput('g')"><span class="key-main" id="kd-g">G</span></button>
-        <button class="key" data-key="h" onclick="handleInput('h')"><span class="key-main" id="kd-h">H</span></button>
-        <button class="key" data-key="j" onclick="handleInput('j')"><span class="key-main" id="kd-j">J</span></button>
-        <button class="key" data-key="k" onclick="handleInput('k')"><span class="key-main" id="kd-k">K</span></button>
-        <button class="key" data-key="l" onclick="handleInput('l')"><span class="key-main" id="kd-l">L</span></button>
+        <button class="key" data-key="a" onclick="handleInput('a')"><span class="key-main" id="kd-a">a</span></button>
+        <button class="key" data-key="s" onclick="handleInput('s')"><span class="key-main" id="kd-s">s</span></button>
+        <button class="key" data-key="d" onclick="handleInput('d')"><span class="key-main" id="kd-d">d</span></button>
+        <button class="key" data-key="f" onclick="handleInput('f')"><span class="key-main" id="kd-f">f</span></button>
+        <button class="key" data-key="g" onclick="handleInput('g')"><span class="key-main" id="kd-g">g</span></button>
+        <button class="key" data-key="h" onclick="handleInput('h')"><span class="key-main" id="kd-h">h</span></button>
+        <button class="key" data-key="j" onclick="handleInput('j')"><span class="key-main" id="kd-j">j</span></button>
+        <button class="key" data-key="k" onclick="handleInput('k')"><span class="key-main" id="kd-k">k</span></button>
+        <button class="key" data-key="l" onclick="handleInput('l')"><span class="key-main" id="kd-l">l</span></button>
     </div>
     <!-- Row 3: Shift, Z-M, Backspace -->
     <div class="row">
         <button class="key key-special" data-key="Shift" id="shift-key" onclick="handleInput('Shift')">Shift</button>
-        <button class="key" data-key="z" onclick="handleInput('z')"><span class="key-main" id="kd-z">Z</span></button>
-        <button class="key" data-key="x" onclick="handleInput('x')"><span class="key-main" id="kd-x">X</span></button>
-        <button class="key" data-key="c" onclick="handleInput('c')"><span class="key-main" id="kd-c">C</span></button>
-        <button class="key" data-key="v" onclick="handleInput('v')"><span class="key-main" id="kd-v">V</span></button>
-        <button class="key" data-key="b" onclick="handleInput('b')"><span class="key-main" id="kd-b">B</span></button>
-        <button class="key" data-key="n" onclick="handleInput('n')"><span class="key-main" id="kd-n">N</span></button>
-        <button class="key" data-key="m" onclick="handleInput('m')"><span class="key-main" id="kd-m">M</span></button>
+        <button class="key" data-key="z" onclick="handleInput('z')"><span class="key-main" id="kd-z">z</span></button>
+        <button class="key" data-key="x" onclick="handleInput('x')"><span class="key-main" id="kd-x">x</span></button>
+        <button class="key" data-key="c" onclick="handleInput('c')"><span class="key-main" id="kd-c">c</span></button>
+        <button class="key" data-key="v" onclick="handleInput('v')"><span class="key-main" id="kd-v">v</span></button>
+        <button class="key" data-key="b" onclick="handleInput('b')"><span class="key-main" id="kd-b">b</span></button>
+        <button class="key" data-key="n" onclick="handleInput('n')"><span class="key-main" id="kd-n">n</span></button>
+        <button class="key" data-key="m" onclick="handleInput('m')"><span class="key-main" id="kd-m">m</span></button>
         <button class="key key-special" data-key="Backspace" onclick="handleInput('Backspace')">⌫</button>
     </div>
-    <!-- Row 4: 全角半角, →, ;(+), Space, Enter -->
+    <!-- Row 4: →, ;(+), Space, Enter -->
     <div class="row">
-        <button class="key key-special" id="zenkaku-key" onclick="handleInput('Zenkaku')">全角</button>
         <button class="key key-wide" data-key="ArrowRight" onclick="handleInput('ArrowRight')">→</button>
         <button class="key key-wide" data-key=";" onclick="handleInput(';')">+</button>
-        <button class="key key-space" data-key=" " onclick="handleInput(' ')">Space</button>
+        <button class="key key-space" data-key=" " id="space-key" onclick="handleInput(' ')">Space</button>
         <button class="key key-special" data-key="Enter" onclick="handleInput('Enter')">Enter</button>
     </div>
 </div>
@@ -498,7 +484,6 @@
     window.kaitouran = [];
     window.adminPass = null;
 
-    // ルート全体を監視: 問題データは mondaiData/, passはルート直下 or mondaiData/pass 両対応
     onValue(rootRef, (snapshot) => {
         const root = snapshot.val() || {};
         const data = root.mondaiData || {};
@@ -506,7 +491,6 @@
         window.rawKotaeGroups = data.kotae     || [];
         window.hani_end       = data.hani      || [];
         window.kaitouran      = data.kaitouran || [];
-        // ルート直下の pass を優先、なければ mondaiData/pass
         if (root.pass !== undefined && root.pass !== null) {
             window.adminPass = root.pass;
         } else if (data.pass !== undefined && data.pass !== null) {
@@ -533,17 +517,23 @@
     let currentPool = [], currentPos = 0;
     let inputs = [], activeInputIdx = 0;
     let isShift = false;
-    let isZenkaku = false;  // true = ローマ字→ひらがな変換モード
-    let romaBuffer = '';    // ローマ字バッファ
-    let henkanMode = false; // 変換候補表示中
-    let henkanBase = '';    // 変換前のひらがな（入力欄末尾）
-    let henkanList = [];    // 変換候補リスト
-    let henkanIdx  = 0;     // 現在選択中の候補インデックス
-    // isShift = false → 通常モード: 大文字A-Z + 下付き₁-₉
-    // isShift = true  → Shiftモード: 小文字a-z + 通常数字1-9
+    // isZenkaku: 全角モード（ひらがな入力）。全角固定バージョンでは切り替え不可
+    let isZenkaku = false;
+    let isZenkakuFixed = false; // true = 全角固定（切り替え不可）
+    let romaBuffer = '';
+    let henkanMode = false;
+    let henkanBase = '';
+    let henkanList = [];
+    let henkanIdx  = 0;
     let isWaiting = false;
     let correctCount = 0, totalQuestions = 0;
     let retryPool = [], wrongAnswers = [];
+
+    // 選択中のバージョンインデックス（0-based）
+    let selectedVerIdx = 0;
+
+    // 全角固定にするバージョン（0-based インデックス）: Ver.2(1), Ver.4(3)
+    const ZENKAKU_FIXED_VERS = new Set([1, 3]);
 
     const SUB_DIGITS = ['₁','₂','₃','₄','₅','₆','₇','₈','₉'];
     const NRM_DIGITS = ['1','2','3','4','5','6','7','8','9'];
@@ -561,7 +551,8 @@
         const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
         letters.forEach(c => {
             const el = document.getElementById(`kd-${c}`);
-            if (el) el.textContent = isShift ? c : c.toUpperCase();
+            // 通常モード(isShift=false): 小文字 / Shiftモード(isShift=true): 大文字
+            if (el) el.textContent = isShift ? c.toUpperCase() : c;
         });
 
         // Shift key visual
@@ -573,12 +564,11 @@
         }
 
         // Number keys:
-        //   通常モード (isShift=false): shows ₁-₉ → inputs subscript
-        //   Shiftモード (isShift=true): shows 1-9 → inputs normal digits
+        //   通常モード (isShift=false): ₁-₉ (下付き)
+        //   Shiftモード (isShift=true): 1-9 (通常数字)
         for (let i = 1; i <= 9; i++) {
             const el = document.getElementById(`nkd-${i}`);
             if (el) el.textContent = isShift ? String(i) : SUB_DIGITS[i - 1];
-            // Number keys are always enabled (both modes use them differently)
             const btn = document.getElementById(`num-${i}`);
             if (btn) btn.classList.remove('key-disabled');
         }
@@ -587,10 +577,16 @@
         const banner = document.getElementById('shift-banner');
         if (isShift) {
             banner.className = 'mode-shift';
-            banner.textContent = 'Shiftモード　a-z / 1-9 / →';
+            banner.textContent = 'Shiftモード　A-Z / 1-9';
         } else {
             banner.className = 'mode-normal';
-            banner.textContent = '通常モード　A-Z / ₁-₉ / →';
+            banner.textContent = '通常モード　a-z / ₁-₉';
+        }
+
+        // Spaceキーのラベル: 全角固定時は「文字変換」
+        const spaceKey = document.getElementById('space-key');
+        if (spaceKey) {
+            spaceKey.textContent = isZenkakuFixed ? '文字変換' : 'Space';
         }
     }
 
@@ -611,6 +607,8 @@
 
     // ===== ローマ字→ひらがな変換テーブル =====
     const ROMA_TABLE = [
+        // 4文字
+        ['xtsu','っ'],['ltsu','っ'],
         // 3文字優先
         ['chi','ち'],['tsu','つ'],['sha','しゃ'],['shi','し'],['shu','しゅ'],['sho','しょ'],
         ['tya','ちゃ'],['tyi','ちぃ'],['tyu','ちゅ'],['tye','ちぇ'],['tyo','ちょ'],
@@ -645,19 +643,19 @@
         ['pa','ぱ'],['pi','ぴ'],['pu','ぷ'],['pe','ぺ'],['po','ぽ'],
         ['fa','ふぁ'],['fi','ふぃ'],['fu','ふ'],['fe','ふぇ'],['fo','ふぉ'],
         ['xa','ぁ'],['xi','ぃ'],['xu','ぅ'],['xe','ぇ'],['xo','ぉ'],
-        ['xya','ゃ'],['xyu','ゅ'],['xyo','ょ'],['xtu','っ'],['xtsu','っ'],
+        ['xya','ゃ'],['xyu','ゅ'],['xyo','ょ'],['xtu','っ'],
         ['la','ぁ'],['li','ぃ'],['lu','ぅ'],['le','ぇ'],['lo','ぉ'],
-        ['lya','ゃ'],['lyu','ゅ'],['lyo','ょ'],['ltu','っ'],['ltsu','っ'],
+        ['lya','ゃ'],['lyu','ゅ'],['lyo','ょ'],['ltu','っ'],
         ['ji','じ'],['ju','じゅ'],
         ['va','ヴぁ'],['vi','ヴぃ'],['vu','ヴ'],['ve','ヴぇ'],['vo','ヴぉ'],
         // 1文字母音
         ['a','あ'],['i','い'],['u','う'],['e','え'],['o','お'],
-        ['n','ん'],
+        // n は特別処理するのでここには入れない
     ];
 
     // ローマ字バッファを変換。変換できた文字を返し、残りをバッファに残す
     function tryConvertRoma(buf) {
-        // っ: 子音が2つ続いた場合 (nn以外)
+        // っ: 同じ子音が2つ続いた場合（n以外）
         if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') {
             return { out: 'っ', rest: buf.slice(1) };
         }
@@ -668,15 +666,14 @@
             }
         }
         // バッファが長くなりすぎたら先頭を捨てる
-        if (buf.length >= 4) {
+        if (buf.length >= 5) {
             return { out: buf[0], rest: buf.slice(1) };
         }
-        return null; // まだ確定できない
+        return null;
     }
 
     function flushRomaBuffer(forceFlush) {
         let result = '';
-        // 'n' + 非母音/非nなら「ん」確定
         if (romaBuffer === 'n') {
             if (forceFlush) { result = 'ん'; romaBuffer = ''; }
         } else {
@@ -684,7 +681,6 @@
             if (res) {
                 result = res.out;
                 romaBuffer = res.rest;
-                // 再帰的に残りも変換
                 if (romaBuffer.length > 0) {
                     const more = flushRomaBuffer(false);
                     result += more;
@@ -698,15 +694,28 @@
         const letter = c.toLowerCase();
         const isVowel = 'aiueo'.includes(letter);
 
-        // 'n' の特別処理: 次が母音でも'n'でもない子音なら「ん」確定
-        if (romaBuffer === 'n' && letter !== 'n' && !isVowel) {
-            inputs[activeInputIdx] += 'ん';
-            romaBuffer = '';
+        // 「ん」の判定:
+        // バッファが 'n' のとき:
+        //   - 次が 'n' → 'nn' で「ん」確定、バッファリセット
+        //   - 次が 母音(a/i/u/e/o) → na/ni/nu/ne/no として処理（「ん」にしない）
+        //   - 次が その他の子音 → 「ん」確定してから次の文字をバッファへ
+        if (romaBuffer === 'n') {
+            if (letter === 'n') {
+                // nn → 「ん」確定
+                inputs[activeInputIdx] += 'ん';
+                romaBuffer = '';
+                updateDisplay();
+                return;
+            } else if (!isVowel) {
+                // 子音が来た → 「ん」確定
+                inputs[activeInputIdx] += 'ん';
+                romaBuffer = '';
+            }
+            // 母音が来た場合はそのまま（na/ni等として処理続行）
         }
 
         romaBuffer += letter;
 
-        // 変換を試みる
         let converted = '';
         while (romaBuffer.length > 0) {
             const res = tryConvertRoma(romaBuffer);
@@ -727,7 +736,6 @@
             const url = `https://www.google.com/transliterate?langpair=ja-Hira|ja&text=${encodeURIComponent(hiragana + ',')}`;
             const res = await fetch(url);
             const json = await res.json();
-            // json: [[original, [候補1, 候補2, ...]], ...]
             const candidates = [];
             json.forEach(seg => { if (seg[1]) seg[1].forEach(c => { if (!candidates.includes(c)) candidates.push(c); }); });
             return candidates.length > 0 ? candidates : [hiragana];
@@ -756,7 +764,6 @@
 
     function selectHenkan(idx) {
         const chosen = henkanList[idx];
-        // 入力末尾のhenkanBaseをchosenに置換
         const cur = inputs[activeInputIdx];
         if (cur.endsWith(henkanBase)) {
             inputs[activeInputIdx] = cur.slice(0, cur.length - henkanBase.length) + chosen;
@@ -777,7 +784,6 @@
         panel.innerHTML = '';
     }
 
-    // 変換対象: 入力末尾のひらがな列を取得
     function getTrailingHiragana(str) {
         const m = str.match(/[\u3041-\u3096ー]+$/);
         return m ? m[0] : '';
@@ -795,14 +801,11 @@
             return;
         }
 
+        // 全角半角トグルは全角固定時は無効
         if (key === 'Zenkaku') {
+            if (isZenkakuFixed) return; // 固定時は切り替え不可
             isZenkaku = !isZenkaku;
             romaBuffer = '';
-            const zk = document.getElementById('zenkaku-key');
-            if (zk) {
-                zk.textContent = isZenkaku ? 'かな' : '全角';
-                isZenkaku ? zk.classList.add('zenkaku-active') : zk.classList.remove('zenkaku-active');
-            }
             updateKeyboardDisplay();
             return;
         }
@@ -810,9 +813,7 @@
         flashKey(key);
 
         if (key === 'Backspace') {
-            // 変換候補表示中はパネルを閉じる
             if (henkanMode) { closeHenkanPanel(); updateDisplay(); return; }
-            // バッファに文字があればバッファを消す
             if (isZenkaku && romaBuffer.length > 0) {
                 romaBuffer = romaBuffer.slice(0, -1);
             } else if (inputs[activeInputIdx] === '') {
@@ -821,12 +822,10 @@
                 inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
             }
         } else if (key === 'Enter') {
-            // 変換候補が出ているなら確定
             if (henkanMode) {
                 selectHenkan(henkanIdx);
                 return;
             }
-            // Enterでバッファを強制フラッシュ
             if (isZenkaku && romaBuffer.length > 0) {
                 const flushed = flushRomaBuffer(true);
                 if (flushed) inputs[activeInputIdx] += flushed;
@@ -847,14 +846,11 @@
                     updateDisplay();
                 }
                 if (henkanMode) {
-                    // 変換中: 次の候補へ
                     henkanIdx = (henkanIdx + 1) % henkanList.length;
                     document.querySelectorAll('.henkan-item').forEach((el, i) => {
                         el.classList.toggle('selected', i === henkanIdx);
                     });
-                    // 選択ハイライトのみ、確定はしない（タップかEnterで確定）
                 } else {
-                    // 末尾ひらがなを取得してGoogle変換
                     const hira = getTrailingHiragana(inputs[activeInputIdx]);
                     if (hira.length > 0) {
                         fetchHenkan(hira).then(candidates => {
@@ -863,7 +859,7 @@
                         });
                     }
                 }
-                return; // updateDisplayは非同期内で
+                return;
             }
             inputs[activeInputIdx] += ' ';
             if (activeInputIdx < inputs.length - 1) activeInputIdx++;
@@ -885,11 +881,10 @@
             }
         } else if (/^[a-zA-Z]$/.test(key)) {
             if (isZenkaku) {
-                // ローマ字モード: 常に小文字として処理
                 inputRomaChar(key.toLowerCase());
             } else {
-                // 通常/Shiftモード
-                inputs[activeInputIdx] += isShift ? key.toLowerCase() : key.toUpperCase();
+                // 通常モード(isShift=false): 小文字 / Shiftモード(isShift=true): 大文字
+                inputs[activeInputIdx] += isShift ? key.toUpperCase() : key.toLowerCase();
             }
         } else {
             return;
@@ -907,17 +902,12 @@
         '反応を化学式で答える',
     ];
 
-    // ===== changeペア定義 =====
-    // [verA_index, verB_index] (0-based)
-    // ver1(0)↔ver2(1), ver3(2)↔ver4(3)
     const CHANGE_PAIRS = [[0,1],[2,3]];
 
-    // verIndexから対応するインデックス範囲の開始を返す
     function verStart(vi) {
         return vi === 0 ? 0 : (window.hani_end[vi-1] + 1);
     }
 
-    // グローバルidx → verIndex (0-based)
     function globalIdxToVerIdx(globalIdx) {
         for (let vi = 0; vi < window.hani_end.length; vi++) {
             if (globalIdx <= window.hani_end[vi]) return vi;
@@ -925,7 +915,6 @@
         return -1;
     }
 
-    // changeペアの相手のverIndexを返す (なければnull)
     function getPairVer(vi) {
         for (const [a, b] of CHANGE_PAIRS) {
             if (vi === a) return b;
@@ -934,7 +923,6 @@
         return null;
     }
 
-    // changeを解決してmondaiとkotaeを返す
     function resolveQuestion(globalIdx) {
         const vi = globalIdxToVerIdx(globalIdx);
         const localIdx = globalIdx - verStart(vi);
@@ -944,9 +932,7 @@
         let kotae  = window.rawKotaeGroups[globalIdx] || [];
         let kaitouran = window.kaitouran[globalIdx] || '';
 
-        // kotaeにchangeが入っていたら → ペアのmondaiを使う
         const kotaeHasChange = kotae.some(k => k === 'change');
-        // mondaiにchangeが入っていたら → ペアのkotaeを使う
         const mondaiIsChange = mondai === 'change';
 
         if (pairVi !== null && (kotaeHasChange || mondaiIsChange)) {
@@ -957,15 +943,11 @@
             const pairKaitouran= window.kaitouran[pairGlobalIdx] || '';
 
             if (kotaeHasChange) {
-                // kotaeをペアのmondaiで置き換え（配列として）
                 kotae = [pairMondai];
-                // kaitouranも穴1つに
                 kaitouran = '()';
             }
             if (mondaiIsChange) {
-                // mondaiをペアのkotaeで置き換え（結合して文字列に）
                 mondai = pairKotae.join('');
-                // kaitouranはそのまま（ペアのkaitouranを使う）
                 kaitouran = pairKaitouran;
             }
         }
@@ -977,7 +959,6 @@
         const listEl = document.getElementById('ver-list');
         if (!listEl) return;
         listEl.innerHTML = '';
-        // 最大5バージョンまで表示
         const count = Math.min(window.hani_end.length, 5);
         for (let i = 0; i < count; i++) {
             const val = window.hani_end[i];
@@ -985,6 +966,7 @@
             btn.className = 'menu-btn';
             btn.innerText = VER_LABELS[i] || `Ver.${i + 1}`;
             btn.onclick = () => {
+                selectedVerIdx = i;
                 const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
                 currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
                 showScreen('order-screen');
@@ -1008,12 +990,14 @@
         document.getElementById('game-container').style.display = 'flex';
         document.getElementById('main-keyboard').style.display = 'block';
         document.getElementById('shift-banner').style.display = 'block';
-        isShift = false;
-        isZenkaku = false;
+
+        // 全角固定バージョン判定
+        isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
+        isZenkaku = isZenkakuFixed; // 固定バージョンは最初から全角ON
+
+        isShift = false; // 必ず通常モードで開始
         romaBuffer = '';
         closeHenkanPanel();
-        const zk = document.getElementById('zenkaku-key');
-        if (zk) { zk.textContent = '全角'; zk.classList.remove('zenkaku-active'); }
         updateKeyboardDisplay();
         loadQuestion();
     }
@@ -1057,11 +1041,9 @@
             if (i === activeInputIdx) {
                 b.classList.add('active-box');
                 b.style.color = '#007bff';
-                // 確定済みテキスト
                 const confirmed = document.createElement('span');
-                confirmed.textContent = v.replace(/ /g, ' ');
+                confirmed.textContent = v.replace(/ /g, ' ');
                 b.appendChild(confirmed);
-                // 未確定ローマ字バッファ（下線付き）
                 if (isZenkaku && romaBuffer.length > 0) {
                     const pending = document.createElement('span');
                     pending.textContent = romaBuffer;
@@ -1072,7 +1054,7 @@
                 c.className = 'cursor';
                 b.appendChild(c);
             } else {
-                b.innerText = (v || '').replace(/ /g, ' ');
+                b.innerText = (v || '').replace(/ /g, ' ');
                 b.style.color = v ? '#333' : '#ccc';
             }
         });
@@ -1224,7 +1206,7 @@
 
     function tryAdminAccess() {
         const entered = prompt('Pass?');
-        if (entered === null) return; // キャンセル
+        if (entered === null) return;
         const stored = String(window.adminPass ?? '');
         if (entered === stored) {
             showScreen('admin-screen');
@@ -1349,19 +1331,6 @@
     }
 
     // ===== Physical keyboard support =====
-    //
-    // 通常モード (isShift=false):
-    //   A-Z → uppercase letters
-    //   1-9 → subscript digits ₁-₉
-    //   Shift → toggle to Shiftモード
-    //
-    // Shiftモード (isShift=true):
-    //   a-z → lowercase letters
-    //   1-9 → normal digits 1-9
-    //   Shift → toggle to 通常モード
-    //
-    // Both modes: ArrowRight→, Backspace, Enter, ;(+), Space
-
     const ALLOWED_PHYSICAL = new Set([
         'a','b','c','d','e','f','g','h','i','j','k','l','m',
         'n','o','p','q','r','s','t','u','v','w','x','y','z',
@@ -1374,7 +1343,6 @@
 
         let key = e.key;
 
-        // 全角半角キー (物理キーボード)
         if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') {
             e.preventDefault();
             handleInput('Zenkaku');
@@ -1385,14 +1353,13 @@
 
         e.preventDefault();
 
-        // Normalise letter to lowercase
         if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
 
         if (!ALLOWED_PHYSICAL.has(key)) return;
         handleInput(key);
     });
 
-    // Expose globals for inline onclick handlers
+    // Expose globals
     window.handleInput          = handleInput;
     window.setOrder             = setOrder;
     window.setBaseStyle         = setBaseStyle;
