@@ -607,20 +607,16 @@
         memoCtx = memoCanvas.getContext('2d');
         const resize = () => {
             const container = document.getElementById('memo-container');
-            memoCanvas.width = container.clientWidth;
-            memoCanvas.height = container.clientHeight;
+            if (container.clientWidth > 0) {
+                memoCanvas.width = container.clientWidth;
+                memoCanvas.height = container.clientHeight;
+            }
         };
         window.addEventListener('resize', resize);
         resize();
 
-        const start = (e) => {
-            isDrawing = true;
-            draw(e);
-        };
-        const end = () => {
-            isDrawing = false;
-            memoCtx.beginPath();
-        };
+        const start = (e) => { isDrawing = true; draw(e); };
+        const end = () => { isDrawing = false; memoCtx.beginPath(); };
         const draw = (e) => {
             if (!isDrawing) return;
             const rect = memoCanvas.getBoundingClientRect();
@@ -634,7 +630,6 @@
             memoCtx.beginPath();
             memoCtx.moveTo(clientX - rect.left, clientY - rect.top);
         };
-
         memoCanvas.addEventListener('mousedown', start);
         memoCanvas.addEventListener('mousemove', draw);
         window.addEventListener('mouseup', end);
@@ -642,26 +637,19 @@
         memoCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, {passive:false});
         window.addEventListener('touchend', end);
     }
-    function clearMemo() {
-        memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height);
-    }
+    function clearMemo() { memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height); }
 
     function switchTab(type) {
         const kbd = document.getElementById('main-keyboard');
         const memo = document.getElementById('memo-container');
         const tabKbd = document.getElementById('tab-kbd');
         const tabMemo = document.getElementById('tab-memo');
-        
         if (type === 'keyboard') {
-            kbd.style.display = 'block';
-            memo.style.display = 'none';
-            tabKbd.classList.add('active');
-            tabMemo.classList.remove('active');
+            kbd.style.display = 'block'; memo.style.display = 'none';
+            tabKbd.classList.add('active'); tabMemo.classList.remove('active');
         } else {
-            kbd.style.display = 'none';
-            memo.style.display = 'flex';
-            tabKbd.classList.remove('active');
-            tabMemo.classList.add('active');
+            kbd.style.display = 'none'; memo.style.display = 'flex';
+            tabKbd.classList.remove('active'); tabMemo.classList.add('active');
             if (!memoCanvas) initMemo();
         }
     }
@@ -674,11 +662,8 @@
             if (el) el.textContent = isShift ? c.toUpperCase() : c;
         });
         const shiftKey = document.getElementById('shift-key');
-        if (isShift) {
-            shiftKey.classList.add('shift-active');
-        } else {
-            shiftKey.classList.remove('shift-active');
-        }
+        if (isShift) { shiftKey.classList.add('shift-active'); }
+        else { shiftKey.classList.remove('shift-active'); }
         for (let i = 1; i <= 9; i++) {
             const el = document.getElementById(`nkd-${i}`);
             if (el) el.textContent = isShift ? String(i) : SUB_DIGITS[i - 1];
@@ -694,19 +679,14 @@
             banner.textContent = '通常モード　a-z / ₁-₉';
         }
         const spaceKey = document.getElementById('space-key');
-        if (spaceKey) {
-            spaceKey.textContent = isZenkakuFixed ? '文字変換' : 'Space';
-        }
+        if (spaceKey) { spaceKey.textContent = isZenkakuFixed ? '文字変換' : 'Space'; }
     }
 
     function flashKey(key) {
         if (key === 'Shift') return;
         let selector;
-        if (/^[1-9]$/.test(key)) {
-            selector = `#num-${key}`;
-        } else {
-            selector = `.key[data-key="${CSS.escape(key)}"]`;
-        }
+        if (/^[1-9]$/.test(key)) { selector = `#num-${key}`; }
+        else { selector = `.key[data-key="${CSS.escape(key)}"]`; }
         const btn = document.querySelector(selector);
         if (!btn || btn.classList.contains('key-disabled')) return;
         btn.classList.add('active');
@@ -731,25 +711,19 @@
     ];
 
     function tryConvertRoma(buf) {
-        if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') {
-            return { out: 'っ', rest: buf.slice(1) };
-        }
-        for (const [roma, hira] of ROMA_TABLE) {
-            if (buf.startsWith(roma)) return { out: hira, rest: buf.slice(roma.length) };
-        }
+        if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') { return { out: 'っ', rest: buf.slice(1) }; }
+        for (const [roma, hira] of ROMA_TABLE) { if (buf.startsWith(roma)) return { out: hira, rest: buf.slice(roma.length) }; }
         if (buf.length >= 5) return { out: buf[0], rest: buf.slice(1) };
         return null;
     }
 
     function flushRomaBuffer(forceFlush) {
         let result = '';
-        if (romaBuffer === 'n') {
-            if (forceFlush) { result = 'ん'; romaBuffer = ''; }
-        } else {
+        if (romaBuffer === 'n') { if (forceFlush) { result = 'ん'; romaBuffer = ''; } }
+        else {
             const res = tryConvertRoma(romaBuffer);
             if (res) {
-                result = res.out;
-                romaBuffer = res.rest;
+                result = res.out; romaBuffer = res.rest;
                 if (romaBuffer.length > 0) result += flushRomaBuffer(false);
             }
         }
@@ -757,27 +731,15 @@
     }
 
     function inputRomaChar(c) {
-        const letter = c.toLowerCase();
-        const isVowel = 'aiueo'.includes(letter);
+        const letter = c.toLowerCase(); const isVowel = 'aiueo'.includes(letter);
         if (romaBuffer === 'n') {
-            if (letter === 'n') {
-                inputs[activeInputIdx] += 'ん';
-                romaBuffer = '';
-                updateDisplay();
-                return;
-            } else if (!isVowel) {
-                inputs[activeInputIdx] += 'ん';
-                romaBuffer = '';
-            }
+            if (letter === 'n') { inputs[activeInputIdx] += 'ん'; romaBuffer = ''; updateDisplay(); return; }
+            else if (!isVowel) { inputs[activeInputIdx] += 'ん'; romaBuffer = ''; }
         }
-        romaBuffer += letter;
-        let converted = '';
+        romaBuffer += letter; let converted = '';
         while (romaBuffer.length > 0) {
             const res = tryConvertRoma(romaBuffer);
-            if (res) {
-                converted += res.out;
-                romaBuffer = res.rest;
-            } else break;
+            if (res) { converted += res.out; romaBuffer = res.rest; } else break;
         }
         if (converted) inputs[activeInputIdx] += converted;
     }
@@ -785,8 +747,7 @@
     async function fetchHenkan(hiragana) {
         try {
             const url = `https://www.google.com/transliterate?langpair=ja-Hira|ja&text=${encodeURIComponent(hiragana + ',')}`;
-            const res = await fetch(url);
-            const json = await res.json();
+            const res = await fetch(url); const json = await res.json();
             const candidates = [];
             json.forEach(seg => { if (seg[1]) seg[1].forEach(c => { if (!candidates.includes(c)) candidates.push(c); }); });
             return candidates.length > 0 ? candidates : [hiragana];
@@ -795,12 +756,9 @@
 
     function showHenkanPanel(candidates, base) {
         henkanMode = true; henkanList = candidates; henkanBase = base; henkanIdx  = 0;
-        const panel = document.getElementById('henkan-panel');
-        panel.innerHTML = '';
+        const panel = document.getElementById('henkan-panel'); panel.innerHTML = '';
         candidates.forEach((c, i) => {
-            const el = document.createElement('div');
-            el.className = 'henkan-item' + (i === 0 ? ' selected' : '');
-            el.textContent = c;
+            const el = document.createElement('div'); el.className = 'henkan-item' + (i === 0 ? ' selected' : ''); el.textContent = c;
             el.addEventListener('touchstart', (e) => { e.preventDefault(); selectHenkan(i); }, {passive: false});
             el.addEventListener('mousedown',  (e) => { e.preventDefault(); selectHenkan(i); });
             panel.appendChild(el);
@@ -809,8 +767,7 @@
     }
 
     function selectHenkan(idx) {
-        const chosen = henkanList[idx];
-        const cur = inputs[activeInputIdx];
+        const chosen = henkanList[idx]; const cur = inputs[activeInputIdx];
         if (cur.endsWith(henkanBase)) inputs[activeInputIdx] = cur.slice(0, cur.length - henkanBase.length) + chosen;
         else inputs[activeInputIdx] += chosen;
         closeHenkanPanel(); updateDisplay();
@@ -818,14 +775,10 @@
 
     function closeHenkanPanel() {
         henkanMode = false; henkanList = []; henkanBase = ''; henkanIdx  = 0;
-        const panel = document.getElementById('henkan-panel');
-        panel.style.display = 'none'; panel.innerHTML = '';
+        const panel = document.getElementById('henkan-panel'); panel.style.display = 'none'; panel.innerHTML = '';
     }
 
-    function getTrailingHiragana(str) {
-        const m = str.match(/[\u3041-\u3096ー]+$/);
-        return m ? m[0] : '';
-    }
+    function getTrailingHiragana(str) { const m = str.match(/[\u3041-\u3096ー]+$/); return m ? m[0] : ''; }
 
     function handleInput(key) {
         if (isWaiting) return;
@@ -842,8 +795,7 @@
         } else if (key === 'Enter') {
             if (henkanMode) { selectHenkan(henkanIdx); return; }
             if (isZenkaku && romaBuffer.length > 0) {
-                const flushed = flushRomaBuffer(true);
-                if (flushed) inputs[activeInputIdx] += flushed;
+                const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
                 romaBuffer = '';
             }
             if (inputs.length > 1 && activeInputIdx < inputs.length - 1) activeInputIdx++;
@@ -851,8 +803,7 @@
         } else if (key === ' ') {
             if (isZenkaku) {
                 if (romaBuffer.length > 0) {
-                    const flushed = flushRomaBuffer(true);
-                    if (flushed) inputs[activeInputIdx] += flushed;
+                    const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
                     romaBuffer = ''; updateDisplay();
                 }
                 if (henkanMode) {
@@ -867,8 +818,7 @@
             inputs[activeInputIdx] += ' '; if (activeInputIdx < inputs.length - 1) activeInputIdx++;
         } else if (key === 'ArrowRight') {
             if (isZenkaku && romaBuffer.length > 0) {
-                const flushed = flushRomaBuffer(true);
-                if (flushed) inputs[activeInputIdx] += flushed;
+                const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
                 romaBuffer = '';
             }
             if (activeInputIdx < inputs.length - 1) activeInputIdx++;
@@ -884,30 +834,39 @@
 
     function updateDisplay() {
         inputs.forEach((v, i) => {
-            const b = document.getElementById(`box-${i}`);
-            if (!b) return;
-            b.classList.remove('active-box');
-            b.innerHTML = '';
+            const b = document.getElementById(`box-${i}`); if (!b) return;
+            b.classList.remove('active-box'); b.innerHTML = '';
             if (i === activeInputIdx) {
-                b.classList.add('active-box');
-                b.style.color = '#007bff';
-                const confirmed = document.createElement('span');
-                confirmed.textContent = v.replace(/ /g, ' ');
-                b.appendChild(confirmed);
+                b.classList.add('active-box'); b.style.color = '#007bff';
+                const confirmed = document.createElement('span'); confirmed.textContent = v.replace(/ /g, ' '); b.appendChild(confirmed);
                 if (isZenkaku && romaBuffer.length > 0) {
-                    const pending = document.createElement('span');
-                    pending.textContent = romaBuffer;
+                    const pending = document.createElement('span'); pending.textContent = romaBuffer;
                     pending.style.cssText = 'text-decoration: underline; color: #0056b3; font-style: italic;';
                     b.appendChild(pending);
                 }
-                const cursor = document.createElement('span');
-                cursor.className = 'cursor';
-                b.appendChild(cursor);
+                const cursor = document.createElement('span'); cursor.className = 'cursor'; b.appendChild(cursor);
             } else {
-                b.style.color = v ? '#333' : '#ccc';
-                b.innerText = (v || '').replace(/ /g, ' ');
+                b.style.color = v ? '#333' : '#ccc'; b.innerText = (v || '').replace(/ /g, ' ');
             }
         });
+    }
+
+    function resolveQuestion(idx) {
+        if (idx < 0 || idx >= window.rawMondai.length) return { mondai: '?', kotae: ['?'], kaitouran: '()' };
+        const mondai = window.rawMondai[idx]; const kotaeGroup = window.rawKotaeGroups[idx] || []; const kaitouran = window.kaitouran[idx] || '()';
+        let kotae = Array.isArray(kotaeGroup) ? kotaeGroup : [kotaeGroup];
+        const verStart = selectedVerIdx === 0 ? 0 : (window.hani_end[selectedVerIdx - 1] + 1);
+        const relativeIdx = idx - verStart;
+        for (const [v1, v2] of CHANGE_PAIRS) {
+            if (selectedVerIdx === v1 || selectedVerIdx === v2) {
+                const targetVer = selectedVerIdx === v1 ? v2 : v1;
+                const pairStart = targetVer === 0 ? 0 : (window.hani_end[targetVer - 1] + 1);
+                const pairIdx = pairStart + relativeIdx;
+                const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
+                kotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
+            }
+        }
+        return { mondai, kotae, kaitouran };
     }
 
     function checkAnswer() {
@@ -920,7 +879,6 @@
             correctSentence += pt;
             if (i < parts.length - 1) correctSentence += `(${ans[i] || ''})`;
         });
-
         if (ok) {
             if (subStyle === 'gacha') {
                 correctCount++;
@@ -940,31 +898,32 @@
 
     function showMsg(m, c, cb, sub = '', gachaReady = false) {
         isWaiting = true;
+        document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('tab-header').style.display = 'none';
+        document.getElementById('memo-container').style.display = 'none';
+        document.getElementById('shift-banner').style.display = 'none';
         const o = document.getElementById('message-overlay');
         document.getElementById('message-content').innerText = m;
         document.getElementById('message-content').style.color = c;
         document.getElementById('message-sub').innerText = sub;
         document.getElementById('gacha-result').style.display = 'none';
-        const gBtn = document.getElementById('gacha-btn');
-        const nBtn = document.getElementById('next-btn-manual');
-        const mBtn = document.getElementById('mix-btn');
-        if (gachaReady) {
-            gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none';
-        } else {
-            gBtn.style.display = 'none'; mBtn.style.display = 'none';
-            nBtn.style.display = cb ? 'none' : 'block';
-        }
+        const gBtn = document.getElementById('gacha-btn'); const nBtn = document.getElementById('next-btn-manual'); const mBtn = document.getElementById('mix-btn');
+        if (gachaReady) { gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none'; }
+        else { gBtn.style.display = 'none'; mBtn.style.display = 'none'; nBtn.style.display = cb ? 'none' : 'block'; }
         o.style.display = 'flex';
-        if (cb) setTimeout(() => { o.style.display = 'none'; isWaiting = false; cb(); }, 1000);
+        if (cb) setTimeout(() => {
+            o.style.display = 'none'; isWaiting = false;
+            document.getElementById('main-keyboard').style.display = 'block';
+            document.getElementById('shift-banner').style.display = 'block';
+            if (selectedVerIdx === 4) document.getElementById('tab-header').style.display = 'block';
+            cb();
+        }, 1000);
     }
 
     function pullGacha() {
         const rand = Math.random() * 100;
         let sum = 0, selected = GACHA_TABLE[0];
-        for (const item of GACHA_TABLE) {
-            sum += item.prob;
-            if (rand < sum) { selected = item; break; }
-        }
+        for (const item of GACHA_TABLE) { sum += item.prob; if (rand < sum) { selected = item; break; } }
         document.getElementById('gacha-btn').style.display = 'none';
         document.getElementById('mix-btn').style.display = 'none';
         const res = document.getElementById('gacha-result');
@@ -975,12 +934,8 @@
     }
 
     function mixGacha() {
-        document.getElementById('gacha-btn').style.display = 'none';
-        document.getElementById('mix-btn').style.display = 'none';
-        setTimeout(() => {
-            document.getElementById('gacha-btn').style.display = 'block';
-            document.getElementById('mix-btn').style.display = 'block';
-        }, 300);
+        document.getElementById('gacha-btn').style.display = 'none'; document.getElementById('mix-btn').style.display = 'none';
+        setTimeout(() => { document.getElementById('gacha-btn').style.display = 'block'; document.getElementById('mix-btn').style.display = 'block'; }, 300);
     }
 
     function next() {
@@ -990,12 +945,8 @@
                 currentPool = [...retryPool]; retryPool = [];
                 if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
                 currentPos = 0; loadQuestion();
-            } else {
-                showAllEnd();
-            }
-        } else {
-            loadQuestion();
-        }
+            } else { showAllEnd(); }
+        } else { loadQuestion(); }
     }
 
     function showAllEnd() {
@@ -1005,34 +956,29 @@
         document.getElementById('tab-header').style.display = 'none';
         document.getElementById('memo-container').style.display = 'none';
         const scoreEl = document.getElementById('allend-score');
-        if (playStyle === 'once') {
-            scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`;
-        } else {
-            scoreEl.innerText = '全問正解！';
-        }
-        const section = document.getElementById('wrong-list-section');
-        const listEl = document.getElementById('wrong-list');
+        if (playStyle === 'once') { scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`; }
+        else { scoreEl.innerText = '全問正解！'; }
+        const section = document.getElementById('wrong-list-section'); const listEl = document.getElementById('wrong-list');
         listEl.innerHTML = '';
         if (wrongAnswers.length > 0) {
             section.style.display = 'block';
             wrongAnswers.forEach((item, i) => {
-                const div = document.createElement('div');
-                div.className = 'wrong-item';
+                const div = document.createElement('div'); div.className = 'wrong-item';
                 const highlighted = item.answer.replace(/\(([^)]*)\)/g, '(<span>$1</span>)');
                 div.innerHTML = `<div class="wi-mondai">Q${i+1}. ${item.mondai}</div><div class="wi-answer">正解: ${highlighted}</div>`;
                 listEl.appendChild(div);
             });
-        } else {
-            section.style.display = 'none';
-        }
+        } else { section.style.display = 'none'; }
         document.getElementById('allend-overlay').style.display = 'flex';
     }
 
     function goToStart() { document.getElementById('allend-overlay').style.display = 'none'; showScreen('start-screen'); }
     
     function closeMessageAndNext() {
-        document.getElementById('message-overlay').style.display = 'none';
-        isWaiting = false;
+        document.getElementById('message-overlay').style.display = 'none'; isWaiting = false;
+        document.getElementById('main-keyboard').style.display = 'block';
+        document.getElementById('shift-banner').style.display = 'block';
+        if (selectedVerIdx === 4) { document.getElementById('tab-header').style.display = 'block'; switchTab('keyboard'); }
         next();
     }
 
@@ -1044,39 +990,14 @@
         if (id) document.getElementById(id).classList.add('active-screen');
     }
 
-    function resolveQuestion(idx) {
-        if (idx < 0 || idx >= window.rawMondai.length) return { mondai: '?', kotae: ['?'], kaitouran: '()' };
-        const mondai = window.rawMondai[idx];
-        const kotaeGroup = window.rawKotaeGroups[idx] || [];
-        const kaitouran = window.kaitouran[idx] || '()';
-        let kotae = Array.isArray(kotaeGroup) ? kotaeGroup : [kotaeGroup];
-        const verStart = selectedVerIdx === 0 ? 0 : (window.hani_end[selectedVerIdx - 1] + 1);
-        const relativeIdx = idx - verStart;
-        for (const [v1, v2] of CHANGE_PAIRS) {
-            if (selectedVerIdx === v1 || selectedVerIdx === v2) {
-                const targetVer = selectedVerIdx === v1 ? v2 : v1;
-                const pairStart = targetVer === 0 ? 0 : (window.hani_end[targetVer - 1] + 1);
-                const pairIdx = pairStart + relativeIdx;
-                const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
-                kotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
-            }
-        }
-        return { mondai, kotae, kaitouran };
-    }
-
     function renderVerList() {
-        const listEl = document.getElementById('ver-list');
-        if (!listEl) return;
-        listEl.innerHTML = '';
-        const count = Math.min(window.hani_end.length, 5);
+        const listEl = document.getElementById('ver-list'); if (!listEl) return;
+        listEl.innerHTML = ''; const count = Math.min(window.hani_end.length, 5);
         for (let i = 0; i < count; i++) {
-            const val = window.hani_end[i];
-            const btn = document.createElement('button');
-            btn.className = 'menu-btn';
+            const val = window.hani_end[i]; const btn = document.createElement('button'); btn.className = 'menu-btn';
             btn.innerText = VER_LABELS[i] || `Ver.${i + 1}`;
             btn.onclick = () => {
-                selectedVerIdx = i;
-                const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
+                selectedVerIdx = i; const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
                 currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
                 showScreen('order-screen');
             };
@@ -1096,34 +1017,22 @@
         document.getElementById('game-container').style.display = 'flex';
         document.getElementById('main-keyboard').style.display = 'block';
         document.getElementById('shift-banner').style.display = 'block';
-        if (selectedVerIdx === 4) {
-            document.getElementById('tab-header').style.display = 'block';
-            switchTab('keyboard');
-        } else {
-            document.getElementById('tab-header').style.display = 'none';
-            document.getElementById('memo-container').style.display = 'none';
-        }
-        isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
-        isZenkaku = isZenkakuFixed;
-        isShift = false; romaBuffer = '';
+        if (selectedVerIdx === 4) { document.getElementById('tab-header').style.display = 'block'; switchTab('keyboard'); }
+        else { document.getElementById('tab-header').style.display = 'none'; document.getElementById('memo-container').style.display = 'none'; }
+        isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx); isZenkaku = isZenkakuFixed; isShift = false; romaBuffer = '';
         closeHenkanPanel(); updateKeyboardDisplay(); loadQuestion();
     }
 
     function loadQuestion() {
-        const idx = currentPool[currentPos];
-        const { mondai, kotae: ans, kaitouran: template } = resolveQuestion(idx);
+        const idx = currentPool[currentPos]; const { mondai, kotae: ans, kaitouran: template } = resolveQuestion(idx);
         document.getElementById('mondai-display').innerText = mondai;
-        const area = document.getElementById('answer-area');
-        area.innerHTML = '';
-        const parts = template.split('()');
-        inputs = new Array(parts.length - 1).fill('');
-        activeInputIdx = 0;
+        const area = document.getElementById('answer-area'); area.innerHTML = '';
+        const parts = template.split('()'); inputs = new Array(parts.length - 1).fill(''); activeInputIdx = 0;
         parts.forEach((pt, i) => {
             if (pt !== '') { const span = document.createElement('span'); span.innerText = pt; area.appendChild(span); }
             if (i < parts.length - 1) {
                 const b = document.createElement('div'); b.className = 'input-box'; b.id = `box-${i}`;
-                const ansLen = (ans[i] || '').length;
-                if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
+                const ansLen = (ans[i] || '').length; if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
                 area.appendChild(b);
             }
         });
@@ -1134,40 +1043,30 @@
     const CHANGE_PAIRS = [[0,1],[2,3]];
     
     function tryAdminAccess() {
-        const entered = prompt('Pass?');
-        if (entered === null) return;
-        if (entered === String(window.adminPass ?? '')) showScreen('admin-screen');
-        else alert('NG');
+        const entered = prompt('Pass?'); if (entered === null) return;
+        const stored = String(window.adminPass ?? '');
+        if (entered === stored) { showScreen('admin-screen'); }
+        else { alert(`NG（DB値: "${stored}"）`); }
     }
-
-    function logAdmin(t) {
-        const c = document.getElementById('admin-console');
-        c.innerText += t + '\n';
-        c.scrollTop = c.scrollHeight;
-    }
+    function logAdmin(t) { const c = document.getElementById('admin-console'); c.innerText += t + '\n'; c.scrollTop = c.scrollHeight; }
     function getListByName(name) {
-        if (name === 'mondai')    return window.rawMondai;
-        if (name === 'kotae')     return window.rawKotaeGroups;
-        if (name === 'hani')      return window.hani_end;
-        if (name === 'kaitouran') return window.kaitouran;
+        if (name === 'mondai')    return window.rawMondai; if (name === 'kotae')     return window.rawKotaeGroups;
+        if (name === 'hani')      return window.hani_end; if (name === 'kaitouran') return window.kaitouran;
         return null;
     }
     function processAdminCommand(e) {
         if (e.key !== 'Enter') return;
-        const input = document.getElementById('admin-input');
-        const full = input.value.trim(); input.value = '';
-        if (!full) return;
-        logAdmin('> ' + full);
-        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || [];
-        const cmd = p[0]?.toLowerCase();
+        const input = document.getElementById('admin-input'); const full = input.value.trim(); input.value = '';
+        if (!full) return; logAdmin('> ' + full);
+        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || []; const cmd = p[0]?.toLowerCase();
         if (cmd === 'exit') showScreen('start-screen');
         else if (cmd === 'setpass') {
-            const newPass = p[1]; if (!newPass) return logAdmin('Usage: setpass <pass>');
-            window.adminPass = newPass; window.saveToFirebase(); logAdmin(`Updated password to ${newPass}`);
+            const newPass = p[1]; if (!newPass) return logAdmin('Usage: setpass <新しいパスワード>');
+            window.adminPass = newPass; window.saveToFirebase(); logAdmin(`パスワードを「${newPass}」に更新しました。`);
         }
         else if (cmd === 'show') {
             const listName = p[1]?.toLowerCase();
-            if (listName === 'all') logAdmin(`Sizes: m:${window.rawMondai.length}, k:${window.rawKotaeGroups.length}, h:${window.hani_end.length}, kr:${window.kaitouran.length}`);
+            if (listName === 'all') logAdmin(`Sizes: mondai:${window.rawMondai.length}, kotae:${window.rawKotaeGroups.length}, hani:${window.hani_end.length}, kaitouran:${window.kaitouran.length}`);
             else {
                 const list = getListByName(listName);
                 if (list) list.forEach((v, i) => logAdmin(`[${i}] ${Array.isArray(v)?v.join(','):v}`));
@@ -1177,27 +1076,28 @@
         else if (cmd === 'add') {
             const listName = p[2]?.toLowerCase();
             if (listName === 'all') {
-                const m = p[3], k = p[4]?p[4].split(','):[], kr = p[5];
-                if (!m||!k.length||!kr) return logAdmin('Usage: add <idx/f> all <m> <k> <kr>');
-                const idx = p[1]==='f' ? window.rawMondai.length : parseInt(p[1]);
-                window.rawMondai.splice(idx,0,m); window.rawKotaeGroups.splice(idx,0,k); window.kaitouran.splice(idx,0,kr);
-                logAdmin(`Added all [${idx}]`); window.saveToFirebase();
+                const mondaiData = p[3], kotaeData = p[4] ? p[4].split(',') : [], kaitouranData = p[5];
+                if (!mondaiData || !kotaeData.length || !kaitouranData) return logAdmin('Usage: add <idx/f> all <mondai> <kotae> <kaitouran>');
+                const idxM = p[1]==='f' ? window.rawMondai.length : parseInt(p[1]);
+                window.rawMondai.splice(idxM, 0, mondaiData); window.rawKotaeGroups.splice(idxM, 0, kotaeData); window.kaitouran.splice(idxM, 0, kaitouranData);
+                logAdmin(`Added all [${idxM}]`); window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list) return logAdmin('Error');
+                const list = getListByName(listName); if (!list) return logAdmin('Error: List not found.');
                 const idx = p[1]==='f' ? list.length : parseInt(p[1]);
                 let data = p[3]; if (listName==='kotae') data = data.split(','); if (listName==='hani') data = parseInt(data);
-                list.splice(idx,0,data); logAdmin(`Added to ${listName} [${idx}]`); window.saveToFirebase();
+                list.splice(idx, 0, data); logAdmin(`Added to ${listName} at [${idx}]`); window.saveToFirebase();
             }
         }
         else if (cmd === 'replace') {
             const listName = p[2]?.toLowerCase();
             if (listName === 'all') {
-                const m = p[3], k = p[4]?p[4].split(','):[], kr = p[5];
-                const idx = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                window.rawMondai[idx] = m; window.rawKotaeGroups[idx] = k; window.kaitouran[idx] = kr;
-                logAdmin(`Replaced all [${idx}]`); window.saveToFirebase();
+                const mondaiData = p[3], kotaeData = p[4]?p[4].split(','):[], kaitouranData = p[5];
+                if (!mondaiData||!kotaeData.length||!kaitouranData) return logAdmin('Usage: replace <idx/f> all <mondai> <kotae> <kaitouran>');
+                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
+                window.rawMondai[idxM] = mondaiData; window.rawKotaeGroups[idxM] = kotaeData; window.kaitouran[idxM] = kaitouranData;
+                logAdmin(`Replaced all [${idxM}]`); window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list) return logAdmin('Error');
+                const list = getListByName(listName); if (!list) return logAdmin('Error: List not found.');
                 const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
                 let data = p[3]; if (listName==='kotae') data = data.split(','); if (listName==='hani') data = parseInt(data);
                 list[idx] = data; logAdmin(`Replaced ${listName} [${idx}]`); window.saveToFirebase();
@@ -1206,11 +1106,11 @@
         else if (cmd === 'remove') {
             const listName = p[2]?.toLowerCase();
             if (listName === 'all') {
-                const idx = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                window.rawMondai.splice(idx,1); window.rawKotaeGroups.splice(idx,1); window.kaitouran.splice(idx,1);
-                logAdmin(`Removed all [${idx}]`); window.saveToFirebase();
+                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
+                window.rawMondai.splice(idxM,1); window.rawKotaeGroups.splice(idxM,1); window.kaitouran.splice(idxM,1);
+                logAdmin(`Removed all [${idxM}]`); window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list) return logAdmin('Error');
+                const list = getListByName(listName); if (!list||list.length===0) return logAdmin('Error: List empty or not found.');
                 const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
                 list.splice(idx,1); logAdmin(`Removed from ${listName} [${idx}]`); window.saveToFirebase();
             }
