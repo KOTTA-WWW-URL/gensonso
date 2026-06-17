@@ -304,6 +304,84 @@
             background: var(--shift-bg);
             color: #333;
         }
+
+        /* ===== TAB INTERFACE (反応式モード用) ===== */
+        #tab-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: none;
+            flex-direction: row;
+            z-index: 25;
+            background: white;
+            border-bottom: 2px solid #ddd;
+            width: 100%;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: #666;
+            border-right: 1px solid #ddd;
+            transition: background 0.2s;
+        }
+        .tab-button:last-child {
+            border-right: none;
+        }
+        .tab-button.active {
+            background: #007bff;
+            color: white;
+        }
+        .tab-button:hover {
+            background: #e0e0e0;
+        }
+        .tab-button.active:hover {
+            background: #0056b3;
+        }
+
+        #memo-panel {
+            position: fixed;
+            top: 40px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 40px - var(--keyboard-total));
+            background: white;
+            display: none;
+            flex-direction: column;
+            z-index: 24;
+            border-bottom: 1px solid #ddd;
+        }
+        #memo-canvas {
+            flex: 1;
+            border: 1px solid #ccc;
+            cursor: crosshair;
+            background: white;
+            display: block;
+        }
+        #memo-controls {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-top: 1px solid #ddd;
+        }
+        #memo-clear-btn {
+            padding: 6px 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        #memo-clear-btn:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -358,6 +436,20 @@
     <h2>ADMIN CONSOLE</h2>
     <div id="admin-console"></div>
     <input type="text" id="admin-input" placeholder="Type command..." onkeydown="processAdminCommand(event)">
+</div>
+
+<!-- TAB INTERFACE (反応式モード用) -->
+<div id="tab-container">
+    <button class="tab-button active" onclick="switchTab('keyboard')">キーボード</button>
+    <button class="tab-button" onclick="switchTab('memo')">メモ</button>
+</div>
+
+<!-- MEMO PANEL -->
+<div id="memo-panel">
+    <canvas id="memo-canvas"></canvas>
+    <div id="memo-controls">
+        <button id="memo-clear-btn" onclick="clearMemoCanvas()">クリア</button>
+    </div>
 </div>
 
 <div id="henkan-panel"></div>
@@ -545,6 +637,127 @@
         { src: "nso/Do_transparent.png", prob: 8  },
         { src: "nso/Bo_transparent.png", prob: 2  }
     ];
+
+    // ===== MEMO CANVAS STATE =====
+    let memoCanvas = null;
+    let memoCtx = null;
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    function initMemoCanvas() {
+        memoCanvas = document.getElementById('memo-canvas');
+        if (!memoCanvas) return;
+        memoCtx = memoCanvas.getContext('2d');
+        
+        // キャンバスサイズを親要素に合わせる
+        const container = document.getElementById('memo-panel');
+        memoCanvas.width = container.clientWidth;
+        memoCanvas.height = container.clientHeight - 50; // controls分を引く
+        
+        // 背景を白で塗る
+        memoCtx.fillStyle = 'white';
+        memoCtx.fillRect(0, 0, memoCanvas.width, memoCanvas.height);
+        
+        // マウスイベント
+        memoCanvas.addEventListener('mousedown', startDrawing);
+        memoCanvas.addEventListener('mousemove', draw);
+        memoCanvas.addEventListener('mouseup', stopDrawing);
+        memoCanvas.addEventListener('mouseout', stopDrawing);
+        
+        // タッチイベント
+        memoCanvas.addEventListener('touchstart', handleTouchStart, false);
+        memoCanvas.addEventListener('touchmove', handleTouchMove, false);
+        memoCanvas.addEventListener('touchend', stopDrawing, false);
+    }
+
+    function startDrawing(e) {
+        isDrawing = true;
+        const rect = memoCanvas.getBoundingClientRect();
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        const rect = memoCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        memoCtx.strokeStyle = '#000000';
+        memoCtx.lineWidth = 2;
+        memoCtx.lineCap = 'round';
+        memoCtx.lineJoin = 'round';
+        
+        memoCtx.beginPath();
+        memoCtx.moveTo(lastX, lastY);
+        memoCtx.lineTo(x, y);
+        memoCtx.stroke();
+        
+        lastX = x;
+        lastY = y;
+    }
+
+    function stopDrawing() {
+        isDrawing = false;
+    }
+
+    function handleTouchStart(e) {
+        e.preventDefault();
+        isDrawing = true;
+        const rect = memoCanvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        lastX = touch.clientX - rect.left;
+        lastY = touch.clientY - rect.top;
+    }
+
+    function handleTouchMove(e) {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const rect = memoCanvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        memoCtx.strokeStyle = '#000000';
+        memoCtx.lineWidth = 2;
+        memoCtx.lineCap = 'round';
+        memoCtx.lineJoin = 'round';
+        
+        memoCtx.beginPath();
+        memoCtx.moveTo(lastX, lastY);
+        memoCtx.lineTo(x, y);
+        memoCtx.stroke();
+        
+        lastX = x;
+        lastY = y;
+    }
+
+    function clearMemoCanvas() {
+        if (!memoCtx) return;
+        memoCtx.fillStyle = 'white';
+        memoCtx.fillRect(0, 0, memoCanvas.width, memoCanvas.height);
+    }
+
+    // ===== TAB SWITCHING =====
+    function switchTab(tab) {
+        const tabContainer = document.getElementById('tab-container');
+        const memoPanel = document.getElementById('memo-panel');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        
+        if (tab === 'keyboard') {
+            document.querySelector('.tab-button:nth-child(1)').classList.add('active');
+            memoPanel.style.display = 'none';
+        } else if (tab === 'memo') {
+            document.querySelector('.tab-button:nth-child(2)').classList.add('active');
+            memoPanel.style.display = 'flex';
+            // キャンバスを再初期化
+            if (!memoCanvas) {
+                initMemoCanvas();
+            }
+        }
+    }
 
     // ===== Keyboard display update =====
     function updateKeyboardDisplay() {
@@ -869,86 +1082,214 @@
                 if (flushed) inputs[activeInputIdx] += flushed;
                 romaBuffer = '';
             }
-            inputs[activeInputIdx] += '→';
+            if (activeInputIdx < inputs.length - 1) activeInputIdx++;
+        } else if (/^[a-z]$/i.test(key)) {
+            if (isZenkaku) {
+                inputRomaChar(key);
+            } else {
+                inputs[activeInputIdx] += isShift ? key.toUpperCase() : key;
+            }
+        } else if (/^[0-9]$/.test(key)) {
+            if (isShift) {
+                inputs[activeInputIdx] += key;
+            } else {
+                inputs[activeInputIdx] += SUB_DIGITS[parseInt(key) - 1];
+            }
         } else if (key === ';') {
             inputs[activeInputIdx] += '+';
-        } else if (/^[1-9]$/.test(key)) {
-            const n = parseInt(key) - 1;
-            if (isShift) {
-                inputs[activeInputIdx] += NRM_DIGITS[n];
-            } else {
-                inputs[activeInputIdx] += SUB_DIGITS[n];
-            }
-        } else if (/^[a-zA-Z]$/.test(key)) {
-            if (isZenkaku) {
-                inputRomaChar(key.toLowerCase());
-            } else {
-                // 通常モード(isShift=false): 小文字 / Shiftモード(isShift=true): 大文字
-                inputs[activeInputIdx] += isShift ? key.toUpperCase() : key.toLowerCase();
-            }
-        } else {
-            return;
         }
-
         updateDisplay();
     }
 
-    // ===== Render =====
-    const VER_LABELS = [
-        '元素記号を答える',
-        '元素名を答える',
-        '分子名を化学式で答える',
-        '化学式を分子名で答える',
-        '反応を化学式で答える',
-    ];
-
-    const CHANGE_PAIRS = [[0,1],[2,3]];
-
-    function verStart(vi) {
-        return vi === 0 ? 0 : (window.hani_end[vi-1] + 1);
-    }
-
-    function globalIdxToVerIdx(globalIdx) {
-        for (let vi = 0; vi < window.hani_end.length; vi++) {
-            if (globalIdx <= window.hani_end[vi]) return vi;
-        }
-        return -1;
-    }
-
-    function getPairVer(vi) {
-        for (const [a, b] of CHANGE_PAIRS) {
-            if (vi === a) return b;
-            if (vi === b) return a;
-        }
-        return null;
-    }
-
-    function resolveQuestion(globalIdx) {
-        const vi = globalIdxToVerIdx(globalIdx);
-        const localIdx = globalIdx - verStart(vi);
-        const pairVi = getPairVer(vi);
-
-        let mondai = window.rawMondai[globalIdx] || '';
-        let kotae  = window.rawKotaeGroups[globalIdx] || [];
-        let kaitouran = window.kaitouran[globalIdx] || '';
-
-        const kotaeHasChange = kotae.some(k => k === 'change');
-        const mondaiIsChange = mondai === 'change';
-
-        if (pairVi !== null && (kotaeHasChange || mondaiIsChange)) {
-            const pairStart = verStart(pairVi);
-            const pairGlobalIdx = pairStart + localIdx;
-            const pairMondai   = window.rawMondai[pairGlobalIdx] || '';
-            const pairKotae    = window.rawKotaeGroups[pairGlobalIdx] || [];
-            const pairKaitouran= window.kaitouran[pairGlobalIdx] || '';
-
-            if (kotaeHasChange) {
-                kotae = [pairMondai];
-                kaitouran = '()';
+    function updateDisplay() {
+        inputs.forEach((v, i) => {
+            const b = document.getElementById(`box-${i}`);
+            if (!b) return;
+            b.classList.remove('active-box');
+            b.innerHTML = '';
+            if (i === activeInputIdx) {
+                b.classList.add('active-box');
+                b.style.color = '#007bff';
+                const confirmed = document.createElement('span');
+                confirmed.textContent = v.replace(/ /g, ' ');
+                b.appendChild(confirmed);
+                if (isZenkaku && romaBuffer.length > 0) {
+                    const pending = document.createElement('span');
+                    pending.textContent = romaBuffer;
+                    pending.style.cssText = 'text-decoration: underline; color: #0056b3; font-style: italic;';
+                    b.appendChild(pending);
+                }
+                const cursor = document.createElement('span');
+                cursor.className = 'cursor';
+                b.appendChild(cursor);
+            } else {
+                b.style.color = '#222';
+                b.textContent = v.replace(/ /g, ' ');
             }
-            if (mondaiIsChange) {
-                mondai = pairKotae.join('');
-                kaitouran = pairKaitouran;
+        });
+    }
+
+    function checkAnswer() {
+        isWaiting = true;
+        const idx = currentPool[currentPos];
+        const { kotae: ans } = resolveQuestion(idx);
+        const userAns = inputs.map(v => v.trim());
+        const correct = userAns.every((u, i) => u === (ans[i] || ''));
+
+        if (correct) {
+            correctCount++;
+            if (subStyle === 'gacha' && correctCount % 4 === 0) {
+                showMessage('正解！', `${correctCount}問目`, true);
+            } else {
+                showMessage('正解！', '', false);
+            }
+        } else {
+            wrongAnswers.push({ mondai: document.getElementById('mondai-display').innerText, ans, userAns });
+            if (playStyle === 'retry') {
+                retryPool.push(idx);
+            }
+            showMessage('不正解', `正解: ${ans.join('')}`, false);
+        }
+    }
+
+    function showMessage(title, sub, showGacha) {
+        document.getElementById('message-content').innerText = title;
+        document.getElementById('message-sub').innerText = sub;
+        const overlay = document.getElementById('message-overlay');
+        overlay.style.display = 'flex';
+
+        if (showGacha) {
+            document.getElementById('gacha-result').style.display = 'block';
+            document.getElementById('gacha-btn').style.display = 'block';
+            document.getElementById('mix-btn').style.display = 'block';
+            document.getElementById('next-btn-manual').style.display = 'none';
+        } else {
+            document.getElementById('gacha-result').style.display = 'none';
+            document.getElementById('gacha-btn').style.display = 'none';
+            document.getElementById('mix-btn').style.display = 'none';
+            document.getElementById('next-btn-manual').style.display = 'block';
+        }
+    }
+
+    function closeMessageAndNext() {
+        document.getElementById('message-overlay').style.display = 'none';
+        currentPos++;
+        if (currentPos >= currentPool.length) {
+            if (playStyle === 'retry' && retryPool.length > 0) {
+                currentPool = retryPool;
+                retryPool = [];
+                currentPos = 0;
+            } else {
+                endGame();
+                return;
+            }
+        }
+        loadQuestion();
+        isWaiting = false;
+    }
+
+    function pullGacha() {
+        const rand = Math.random() * 100;
+        let cumulative = 0;
+        let chosen = GACHA_TABLE[0];
+        for (const item of GACHA_TABLE) {
+            cumulative += item.prob;
+            if (rand < cumulative) {
+                chosen = item;
+                break;
+            }
+        }
+        document.getElementById('gacha-img').src = chosen.src;
+        document.getElementById('gacha-prob').innerText = `確率: ${chosen.prob}%`;
+    }
+
+    function mixGacha() {
+        // 混ぜる機能（既存のロジック維持）
+    }
+
+    function endGame() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('shift-banner').style.display = 'none';
+        document.getElementById('tab-container').style.display = 'none';
+        document.getElementById('memo-panel').style.display = 'none';
+
+        const allendOverlay = document.getElementById('allend-overlay');
+        allendOverlay.style.display = 'flex';
+        document.getElementById('allend-score').innerText = `${correctCount} / ${totalQuestions}`;
+
+        if (wrongAnswers.length > 0) {
+            const wrongSection = document.getElementById('wrong-list-section');
+            wrongSection.style.display = 'block';
+            const wrongList = document.getElementById('wrong-list');
+            wrongList.innerHTML = '';
+            wrongAnswers.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'wrong-item';
+                div.innerHTML = `
+                    <div class="wi-mondai">${item.mondai}</div>
+                    <div class="wi-answer">正解: <span>${item.ans.join('')}</span></div>
+                    <div class="wi-answer">あなた: <span>${item.userAns.join('')}</span></div>
+                `;
+                wrongList.appendChild(div);
+            });
+        }
+    }
+
+    function goToStart() {
+        document.getElementById('allend-overlay').style.display = 'none';
+        showScreen('start-screen');
+    }
+
+    // ===== Screen management =====
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+        if (screenId) {
+            document.getElementById(screenId).classList.add('active-screen');
+        }
+    }
+
+    // ===== Data resolution =====
+    function resolveQuestion(idx) {
+        if (idx < 0 || idx >= window.rawMondai.length) {
+            return { mondai: '?', kotae: ['?'], kaitouran: '()' };
+        }
+
+        const mondai = window.rawMondai[idx];
+        const kotaeGroup = window.rawKotaeGroups[idx] || [];
+        const kaitouran = window.kaitouran[idx] || '()';
+
+        let kotae = [];
+        if (Array.isArray(kotaeGroup)) {
+            kotae = kotaeGroup;
+        } else if (typeof kotaeGroup === 'string') {
+            kotae = [kotaeGroup];
+        }
+
+        // CHANGE_PAIRS による入れ替え
+        const verStart = selectedVerIdx === 0 ? 0 : (window.hani_end[selectedVerIdx - 1] + 1);
+        const relativeIdx = idx - verStart;
+        for (const [v1, v2] of CHANGE_PAIRS) {
+            if (selectedVerIdx === v1) {
+                const pairIdx = window.hani_end[v2] - window.hani_end[v1] + relativeIdx;
+                const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
+                let pairKotae = [];
+                if (Array.isArray(pairKotaeGroup)) {
+                    pairKotae = pairKotaeGroup;
+                } else if (typeof pairKotaeGroup === 'string') {
+                    pairKotae = [pairKotaeGroup];
+                }
+                kotae = pairKotae;
+            } else if (selectedVerIdx === v2) {
+                const pairIdx = window.hani_end[v1] - window.hani_end[v2] + relativeIdx;
+                const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
+                let pairKotae = [];
+                if (Array.isArray(pairKotaeGroup)) {
+                    pairKotae = pairKotaeGroup;
+                } else if (typeof pairKotaeGroup === 'string') {
+                    pairKotae = [pairKotaeGroup];
+                }
+                kotae = pairKotae;
             }
         }
 
@@ -991,6 +1332,14 @@
         document.getElementById('main-keyboard').style.display = 'block';
         document.getElementById('shift-banner').style.display = 'block';
 
+        // 反応式モード（Ver.5, selectedVerIdx=4）の場合のみタブを表示
+        if (selectedVerIdx === 4) {
+            document.getElementById('tab-container').style.display = 'flex';
+        } else {
+            document.getElementById('tab-container').style.display = 'none';
+            document.getElementById('memo-panel').style.display = 'none';
+        }
+
         // 全角固定バージョン判定
         isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
         isZenkaku = isZenkakuFixed; // 固定バージョンは最初から全角ON
@@ -1032,345 +1381,51 @@
         updateDisplay();
     }
 
-    function updateDisplay() {
-        inputs.forEach((v, i) => {
-            const b = document.getElementById(`box-${i}`);
-            if (!b) return;
-            b.classList.remove('active-box');
-            b.innerHTML = '';
-            if (i === activeInputIdx) {
-                b.classList.add('active-box');
-                b.style.color = '#007bff';
-                const confirmed = document.createElement('span');
-                confirmed.textContent = v.replace(/ /g, ' ');
-                b.appendChild(confirmed);
-                if (isZenkaku && romaBuffer.length > 0) {
-                    const pending = document.createElement('span');
-                    pending.textContent = romaBuffer;
-                    pending.style.cssText = 'text-decoration: underline; color: #0056b3; font-style: italic;';
-                    b.appendChild(pending);
-                }
-                const c = document.createElement('span');
-                c.className = 'cursor';
-                b.appendChild(c);
-            } else {
-                b.innerText = (v || '').replace(/ /g, ' ');
-                b.style.color = v ? '#333' : '#ccc';
-            }
-        });
+    // ===== Render =====
+    const VER_LABELS = [
+        '元素記号を答える',
+        '元素名を答える',
+        '分子名を化学式で答える',
+        '化学式を分子名で答える',
+        '反応を化学式で答える',
+    ];
+
+    const CHANGE_PAIRS = [[0,1],[2,3]];
+
+    function verStart(vi) {
+        return vi === 0 ? 0 : (window.hani_end[vi-1] + 1);
     }
 
-    function checkAnswer() {
-        const idx = currentPool[currentPos];
-        const { mondai: mondaiText, kotae: ans, kaitouran: template } = resolveQuestion(idx);
-
-        const ok = inputs.every((v, i) => v.trim() === (ans[i] || ''));
-
-        const parts = template.split('()');
-        let correctSentence = '';
-        parts.forEach((pt, i) => {
-            correctSentence += pt;
-            if (i < parts.length - 1) correctSentence += `(${ans[i] || ''})`;
-        });
-
-        if (ok) {
-            if (subStyle === 'gacha') {
-                correctCount++;
-                if (correctCount >= 4) {
-                    correctCount = 0;
-                    showMsg('正解！', 'green', null, '4回正解達成！おめでと！', true);
-                    return;
-                }
-            }
-            showMsg('正解', 'green', () => next());
-        } else {
-            if (playStyle === 'retry') retryPool.push(idx);
-            wrongAnswers.push({ mondai: mondaiText, answer: correctSentence });
-            showMsg('不正解', 'red', null, `正解: ${correctSentence}`);
-        }
-    }
-
-    function showMsg(m, c, cb, sub = '', gachaReady = false) {
-        isWaiting = true;
-        const o = document.getElementById('message-overlay');
-        document.getElementById('message-content').innerText = m;
-        document.getElementById('message-content').style.color = c;
-        document.getElementById('message-sub').innerText = sub;
-        document.getElementById('gacha-result').style.display = 'none';
-
-        const gBtn = document.getElementById('gacha-btn');
-        const nBtn = document.getElementById('next-btn-manual');
-        const mBtn = document.getElementById('mix-btn');
-
-        if (gachaReady) {
-            gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none';
-        } else {
-            gBtn.style.display = 'none'; mBtn.style.display = 'none';
-            nBtn.style.display = cb ? 'none' : 'block';
-        }
-
-        o.style.display = 'flex';
-        if (cb) setTimeout(() => { o.style.display = 'none'; isWaiting = false; cb(); }, 1000);
-    }
-
-    function pullGacha() {
-        const rand = Math.random() * 100;
-        let sum = 0, selected = GACHA_TABLE[0];
-        for (const item of GACHA_TABLE) {
-            sum += item.prob;
-            if (rand < sum) { selected = item; break; }
-        }
-        document.getElementById('gacha-btn').style.display = 'none';
-        document.getElementById('mix-btn').style.display = 'none';
-        const res = document.getElementById('gacha-result');
-        document.getElementById('gacha-img').src = selected.src;
-        document.getElementById('gacha-prob').innerText = `出現確率: ${selected.prob}%`;
-        res.style.display = 'block';
-        document.getElementById('next-btn-manual').style.display = 'block';
-    }
-
-    function mixGacha() {
-        document.getElementById('gacha-btn').style.display = 'none';
-        document.getElementById('mix-btn').style.display = 'none';
-        setTimeout(() => {
-            document.getElementById('gacha-btn').style.display = 'block';
-            document.getElementById('mix-btn').style.display = 'block';
-        }, 300);
-    }
-
-    function next() {
-        currentPos++;
-        if (currentPos >= currentPool.length) {
-            if (playStyle === 'retry' && retryPool.length > 0) {
-                currentPool = [...retryPool]; retryPool = [];
-                if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
-                currentPos = 0; loadQuestion();
-            } else {
-                showAllEnd();
-            }
-        } else {
-            loadQuestion();
-        }
-    }
-
-    function showAllEnd() {
-        document.getElementById('game-container').style.display = 'none';
-        document.getElementById('main-keyboard').style.display = 'none';
-        document.getElementById('shift-banner').style.display = 'none';
-
-        const scoreEl = document.getElementById('allend-score');
-        if (playStyle === 'once') {
-            scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`;
-        } else {
-            scoreEl.innerText = '全問正解！';
-        }
-
-        const section = document.getElementById('wrong-list-section');
-        const listEl = document.getElementById('wrong-list');
-        listEl.innerHTML = '';
-        if (wrongAnswers.length > 0) {
-            section.style.display = 'block';
-            wrongAnswers.forEach((item, i) => {
-                const div = document.createElement('div');
-                div.className = 'wrong-item';
-                const highlighted = item.answer.replace(/\(([^)]*)\)/g, '(<span>$1</span>)');
-                div.innerHTML = `
-                    <div class="wi-mondai">Q${i+1}. ${item.mondai}</div>
-                    <div class="wi-answer">正解: ${highlighted}</div>`;
-                listEl.appendChild(div);
-            });
-        } else {
-            section.style.display = 'none';
-        }
-        document.getElementById('allend-overlay').style.display = 'flex';
-    }
-
-    function goToStart() {
-        document.getElementById('allend-overlay').style.display = 'none';
-        showScreen('start-screen');
-    }
-
-    function closeMessageAndNext() {
-        document.getElementById('message-overlay').style.display = 'none';
-        isWaiting = false;
-        next();
-    }
-
-    function showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
-        document.getElementById('game-container').style.display = 'none';
-        document.getElementById('main-keyboard').style.display = 'none';
-        document.getElementById('shift-banner').style.display = 'none';
-        if (id) document.getElementById(id).classList.add('active-screen');
-    }
-
+    // ===== Admin =====
     function tryAdminAccess() {
-        const entered = prompt('Pass?');
-        if (entered === null) return;
-        const stored = String(window.adminPass ?? '');
-        if (entered === stored) {
+        const pass = prompt('パスワード:');
+        if (pass === window.adminPass) {
             showScreen('admin-screen');
         } else {
-            alert(`NG（DB値: "${strong}"）`);
+            alert('不正なパスワード');
         }
     }
 
-    // ===== Admin Console =====
-    function logAdmin(t) {
-        const c = document.getElementById('admin-console');
-        c.innerText += t + '\n';
-        c.scrollTop = c.scrollHeight;
-    }
-    function getListByName(name) {
-        if (name === 'mondai')    return window.rawMondai;
-        if (name === 'kotae')     return window.rawKotaeGroups;
-        if (name === 'hani')      return window.hani_end;
-        if (name === 'kaitouran') return window.kaitouran;
-        return null;
-    }
-    function processAdminCommand(e) {
-        if (e.key !== 'Enter') return;
+    function processAdminCommand(event) {
+        if (event.key !== 'Enter') return;
         const input = document.getElementById('admin-input');
-        const full = input.value.trim();
+        const cmd = input.value.trim();
         input.value = '';
-        if (!full) return;
-        logAdmin('> ' + full);
-        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || [];
-        const cmd = p[0]?.toLowerCase();
 
-        if (cmd === 'exit') showScreen('start-screen');
-        else if (cmd === 'setpass') {
-            const newPass = p[1];
-            if (!newPass) return logAdmin('Usage: setpass <新しいパスワード>');
-            window.adminPass = newPass;
+        const console = document.getElementById('admin-console');
+        console.textContent += `> ${cmd}\n`;
+
+        if (cmd === 'save') {
             window.saveToFirebase();
-            logAdmin(`パスワードを「${newPass}」に更新しました。`);
+            console.textContent += 'Saved to Firebase\n';
+        } else if (cmd === 'clear') {
+            console.textContent = '';
+        } else {
+            console.textContent += 'Unknown command\n';
         }
-        else if (cmd === 'show') {
-            const listName = p[1]?.toLowerCase();
-            if (listName === 'all') logAdmin(`Sizes: mondai:${window.rawMondai.length}, kotae:${window.rawKotaeGroups.length}, hani:${window.hani_end.length}, kaitouran:${window.kaitouran.length}`);
-            else {
-                const list = getListByName(listName);
-                if (list) list.forEach((v, i) => logAdmin(`[${i}] ${Array.isArray(v)?v.join(','):v}`));
-                else logAdmin('Lists: mondai, kotae, hani, kaitouran');
-            }
-        }
-        else if (cmd === 'add') {
-            const listName = p[2]?.toLowerCase();
-            if (listName === 'all') {
-                const mondaiData = p[3], kotaeData = p[4] ? p[4].split(',') : [], kaitouranData = p[5];
-                if (!mondaiData || !kotaeData.length || !kaitouranData) return logAdmin('Usage: add <idx/f> all <mondai> <kotae> <kaitouran>');
-                const idxM = p[1]==='f' ? window.rawMondai.length : parseInt(p[1]);
-                window.rawMondai.splice(idxM, 0, mondaiData);
-                window.rawKotaeGroups.splice(idxM, 0, kotaeData);
-                window.kaitouran.splice(idxM, 0, kaitouranData);
-                logAdmin(`Added all [${idxM}]`);
-                window.saveToFirebase();
-            } else {
-                const list = getListByName(listName);
-                if (!list) return logAdmin('Error: List not found.');
-                const idx = p[1]==='f' ? list.length : parseInt(p[1]);
-                if (isNaN(idx)||idx<0) return logAdmin('Error: Invalid index.');
-                let data = p[3];
-                if (listName==='kotae') data = data.split(',');
-                if (listName==='hani')  data = parseInt(data);
-                list.splice(idx, 0, data);
-                logAdmin(`Added to ${listName} at [${idx}]`);
-                window.saveToFirebase();
-            }
-        }
-        else if (cmd === 'replace') {
-            const listName = p[2]?.toLowerCase();
-            if (listName === 'all') {
-                const mondaiData = p[3], kotaeData = p[4]?p[4].split(','):[], kaitouranData = p[5];
-                if (!mondaiData||!kotaeData.length||!kaitouranData) return logAdmin('Usage: replace <idx/f> all <mondai> <kotae> <kaitouran>');
-                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
-                window.rawMondai[idxM] = mondaiData;
-                window.rawKotaeGroups[idxM] = kotaeData;
-                window.kaitouran[idxM] = kaitouranData;
-                logAdmin(`Replaced all [${idxM}]`);
-                window.saveToFirebase();
-            } else {
-                const list = getListByName(listName);
-                if (!list) return logAdmin('Error: List not found.');
-                const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
-                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
-                let data = p[3];
-                if (listName==='kotae') data = data.split(',');
-                if (listName==='hani')  data = parseInt(data);
-                list[idx] = data;
-                logAdmin(`Replaced ${listName} [${idx}]`);
-                window.saveToFirebase();
-            }
-        }
-        else if (cmd === 'remove') {
-            const listName = p[2]?.toLowerCase();
-            if (listName === 'all') {
-                const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
-                window.rawMondai.splice(idxM,1);
-                window.rawKotaeGroups.splice(idxM,1);
-                window.kaitouran.splice(idxM,1);
-                logAdmin(`Removed all [${idxM}]`);
-                window.saveToFirebase();
-            } else {
-                const list = getListByName(listName);
-                if (!list||list.length===0) return logAdmin('Error: List empty or not found.');
-                const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
-                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
-                list.splice(idx,1);
-                logAdmin(`Removed from ${listName} [${idx}]`);
-                window.saveToFirebase();
-            }
-        }
-        else {
-            logAdmin(`Unknown command: ${cmd}`);
-            logAdmin('Commands: exit, setpass, show, add, replace, remove');
-        }
+        console.scrollTop = console.scrollHeight;
     }
-
-    // ===== Physical keyboard support =====
-    const ALLOWED_PHYSICAL = new Set([
-        'a','b','c','d','e','f','g','h','i','j','k','l','m',
-        'n','o','p','q','r','s','t','u','v','w','x','y','z',
-        '1','2','3','4','5','6','7','8','9',
-        'Enter', 'Backspace', 'Shift', 'ArrowRight', ';', ' '
-    ]);
-
-    window.addEventListener('keydown', (e) => {
-        if (document.activeElement.id === 'admin-input') return;
-
-        let key = e.key;
-
-        if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') {
-            e.preventDefault();
-            handleInput('Zenkaku');
-            return;
-        }
-
-        if (key === 'Shift') { e.preventDefault(); handleInput('Shift'); return; }
-
-        e.preventDefault();
-
-        if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
-
-        if (!ALLOWED_PHYSICAL.has(key)) return;
-        handleInput(key);
-    });
-
-    // Expose globals
-    window.handleInput          = handleInput;
-    window.setOrder             = setOrder;
-    window.setBaseStyle         = setBaseStyle;
-    window.setFinalStyle        = setFinalStyle;
-    window.goToStart            = goToStart;
-    window.closeMessageAndNext  = closeMessageAndNext;
-    window.pullGacha            = pullGacha;
-    window.mixGacha             = mixGacha;
-    window.tryAdminAccess       = tryAdminAccess;
-    window.processAdminCommand  = processAdminCommand;
-    window.renderVerList        = renderVerList;
 </script>
+
 </body>
 </html>
