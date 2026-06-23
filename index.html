@@ -853,8 +853,10 @@
 
     function resolveQuestion(idx) {
         if (idx < 0 || idx >= window.rawMondai.length) return { mondai: '?', kotae: ['?'], kaitouran: '()' };
-        const mondai = window.rawMondai[idx]; const kotaeGroup = window.rawKotaeGroups[idx] || []; const kaitouran = window.kaitouran[idx] || '()';
+        let mondai = window.rawMondai[idx];
+        let kotaeGroup = window.rawKotaeGroups[idx] || [];
         let kotae = Array.isArray(kotaeGroup) ? kotaeGroup : [kotaeGroup];
+        const kaitouran = window.kaitouran[idx] || '()';
         const verStart = selectedVerIdx === 0 ? 0 : (window.hani_end[selectedVerIdx - 1] + 1);
         const relativeIdx = idx - verStart;
         for (const [v1, v2] of CHANGE_PAIRS) {
@@ -863,7 +865,14 @@
                 const pairStart = targetVer === 0 ? 0 : (window.hani_end[targetVer - 1] + 1);
                 const pairIdx = pairStart + relativeIdx;
                 const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
-                kotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
+                const pairKotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
+                if (mondai === 'change') {
+                    mondai = window.rawMondai[pairIdx] || '?';
+                    kotae = pairKotae;
+                } else if (kotae.includes('change')) {
+                    mondai = pairKotae.join('');
+                    kotae = [window.rawMondai[pairIdx] || '?'];
+                }
             }
         }
         return { mondai, kotae, kaitouran };
