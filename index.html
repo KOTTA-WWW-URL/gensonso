@@ -164,7 +164,6 @@
             padding: var(--kbd-padding) 0;
             display: none;
             padding-bottom: calc(var(--kbd-padding) + env(safe-area-inset-bottom, 0px));
-            z-index: 100;
         }
         .row {
             display: flex; justify-content: center; margin-bottom: var(--key-mb);
@@ -305,63 +304,6 @@
             background: var(--shift-bg);
             color: #333;
         }
-
-        /* ===== TAB & MEMO (Reaction mode only) ===== */
-        #tab-header {
-            position: fixed;
-            bottom: var(--keyboard-total);
-            left: 0;
-            display: none;
-            z-index: 110;
-        }
-        .tab-btn {
-            padding: 4px 12px;
-            font-size: 12px;
-            border: 1px solid #999;
-            border-bottom: none;
-            border-radius: 5px 5px 0 0;
-            background: #eee;
-            cursor: pointer;
-            color: #666;
-        }
-        .tab-btn.active {
-            background: var(--bg-color);
-            color: #000;
-            font-weight: bold;
-            border-color: #999;
-        }
-
-        #memo-container {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: var(--keyboard-total);
-            background: white;
-            display: none;
-            z-index: 105;
-            flex-direction: column;
-        }
-        #memo-canvas {
-            flex: 1;
-            width: 100%;
-            touch-action: none;
-            cursor: crosshair;
-        }
-        #memo-tools {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            z-index: 120;
-        }
-        #memo-clear {
-            padding: 4px 8px;
-            font-size: 11px;
-            background: #f8f9fa;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -425,23 +367,20 @@
     <div id="answer-area"></div>
 </div>
 
-<!-- Tab Header (Reaction mode only) -->
-<div id="tab-header">
-    <button class="tab-btn active" id="tab-kbd" onclick="switchTab('keyboard')">キーボード</button>
-    <button class="tab-btn" id="tab-memo" onclick="switchTab('memo')">メモ</button>
-</div>
-
-<!-- Memo Container (Reaction mode only) -->
-<div id="memo-container">
-    <div id="memo-tools">
-        <button id="memo-clear" onclick="clearMemo()">クリア</button>
-    </div>
-    <canvas id="memo-canvas"></canvas>
-</div>
-
 <!-- Shift mode banner -->
 <div id="shift-banner" class="mode-normal">通常モード　a-z / ₁-₉</div>
 
+<!--
+    KEYBOARD LAYOUT
+
+    通常モード (isShift = false):
+      - a-z (小文字)
+      - Number row: 下付き文字 ₁-₉ を入力
+
+    Shiftモード (isShift = true):
+      - A-Z (大文字)
+      - Number row: 通常数字 1-9 を入力
+-->
 <div class="keyboard" id="main-keyboard">
     <!-- Number row -->
     <div class="row" id="num-row">
@@ -578,8 +517,9 @@
     let currentPool = [], currentPos = 0;
     let inputs = [], activeInputIdx = 0;
     let isShift = false;
+    // isZenkaku: 全角モード（ひらがな入力）。全角固定バージョンでは切り替え不可
     let isZenkaku = false;
-    let isZenkakuFixed = false;
+    let isZenkakuFixed = false; // true = 全角固定（切り替え不可）
     let romaBuffer = '';
     let henkanMode = false;
     let henkanBase = '';
@@ -588,10 +528,16 @@
     let isWaiting = false;
     let correctCount = 0, totalQuestions = 0;
     let retryPool = [], wrongAnswers = [];
+
+    // 選択中のバージョンインデックス（0-based）
     let selectedVerIdx = 0;
+
+    // 全角固定にするバージョン（0-based インデックス）: Ver.2(1), Ver.4(3)
     const ZENKAKU_FIXED_VERS = new Set([1, 3]);
+
     const SUB_DIGITS = ['₁','₂','₃','₄','₅','₆','₇','₈','₉'];
     const NRM_DIGITS = ['1','2','3','4','5','6','7','8','9'];
+
     const GACHA_TABLE = [
         { src: "nso/Co_transparent.png", prob: 40 },
         { src: "nso/Eo_transparent.png", prob: 40 },
@@ -600,76 +546,34 @@
         { src: "nso/Bo_transparent.png", prob: 2  }
     ];
 
-    // ===== MEMO CANVAS =====
-    let memoCanvas, memoCtx, isDrawing = false;
-    function initMemo() {
-        memoCanvas = document.getElementById('memo-canvas');
-        memoCtx = memoCanvas.getContext('2d');
-        const resize = () => {
-            const container = document.getElementById('memo-container');
-            if (container.clientWidth > 0) {
-                memoCanvas.width = container.clientWidth;
-                memoCanvas.height = container.clientHeight;
-            }
-        };
-        window.addEventListener('resize', resize);
-        resize();
-
-        const start = (e) => { isDrawing = true; draw(e); };
-        const end = () => { isDrawing = false; memoCtx.beginPath(); };
-        const draw = (e) => {
-            if (!isDrawing) return;
-            const rect = memoCanvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            memoCtx.lineWidth = 2;
-            memoCtx.lineCap = 'round';
-            memoCtx.strokeStyle = 'black';
-            memoCtx.lineTo(clientX - rect.left, clientY - rect.top);
-            memoCtx.stroke();
-            memoCtx.beginPath();
-            memoCtx.moveTo(clientX - rect.left, clientY - rect.top);
-        };
-        memoCanvas.addEventListener('mousedown', start);
-        memoCanvas.addEventListener('mousemove', draw);
-        window.addEventListener('mouseup', end);
-        memoCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, {passive:false});
-        memoCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, {passive:false});
-        window.addEventListener('touchend', end);
-    }
-    function clearMemo() { memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height); }
-
-    function switchTab(type) {
-        const kbd = document.getElementById('main-keyboard');
-        const memo = document.getElementById('memo-container');
-        const tabKbd = document.getElementById('tab-kbd');
-        const tabMemo = document.getElementById('tab-memo');
-        if (type === 'keyboard') {
-            kbd.style.display = 'block'; memo.style.display = 'none';
-            tabKbd.classList.add('active'); tabMemo.classList.remove('active');
-        } else {
-            kbd.style.display = 'none'; memo.style.display = 'flex';
-            tabKbd.classList.remove('active'); tabMemo.classList.add('active');
-            if (!memoCanvas) initMemo();
-        }
-    }
-
     // ===== Keyboard display update =====
     function updateKeyboardDisplay() {
         const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
         letters.forEach(c => {
             const el = document.getElementById(`kd-${c}`);
+            // 通常モード(isShift=false): 小文字 / Shiftモード(isShift=true): 大文字
             if (el) el.textContent = isShift ? c.toUpperCase() : c;
         });
+
+        // Shift key visual
         const shiftKey = document.getElementById('shift-key');
-        if (isShift) { shiftKey.classList.add('shift-active'); }
-        else { shiftKey.classList.remove('shift-active'); }
+        if (isShift) {
+            shiftKey.classList.add('shift-active');
+        } else {
+            shiftKey.classList.remove('shift-active');
+        }
+
+        // Number keys:
+        //   通常モード (isShift=false): ₁-₉ (下付き)
+        //   Shiftモード (isShift=true): 1-9 (通常数字)
         for (let i = 1; i <= 9; i++) {
             const el = document.getElementById(`nkd-${i}`);
             if (el) el.textContent = isShift ? String(i) : SUB_DIGITS[i - 1];
             const btn = document.getElementById(`num-${i}`);
             if (btn) btn.classList.remove('key-disabled');
         }
+
+        // Banner
         const banner = document.getElementById('shift-banner');
         if (isShift) {
             banner.className = 'mode-shift';
@@ -678,87 +582,179 @@
             banner.className = 'mode-normal';
             banner.textContent = '通常モード　a-z / ₁-₉';
         }
+
+        // Spaceキーのラベル: 全角固定時は「文字変換」
         const spaceKey = document.getElementById('space-key');
-        if (spaceKey) { spaceKey.textContent = isZenkakuFixed ? '文字変換' : 'Space'; }
+        if (spaceKey) {
+            spaceKey.textContent = isZenkakuFixed ? '文字変換' : 'Space';
+        }
     }
 
     function flashKey(key) {
         if (key === 'Shift') return;
         let selector;
-        if (/^[1-9]$/.test(key)) { selector = `#num-${key}`; }
-        else { selector = `.key[data-key="${CSS.escape(key)}"]`; }
+        if (/^[1-9]$/.test(key)) {
+            selector = `#num-${key}`;
+        } else {
+            selector = `.key[data-key="${CSS.escape(key)}"]`;
+        }
         const btn = document.querySelector(selector);
         if (!btn || btn.classList.contains('key-disabled')) return;
         btn.classList.add('active');
         setTimeout(() => btn.classList.remove('active'), 150);
     }
 
+
+    // ===== ローマ字→ひらがな変換テーブル =====
     const ROMA_TABLE = [
-        ['xtsu','っ'],['ltsu','っ'],['chi','ち'],['tsu','つ'],['sha','しゃ'],['shi','し'],['shu','しゅ'],['sho','しょ'],
-        ['tya','ちゃ'],['tu','つ'],['tyu','ちゅ'],['tye','ちぇ'],['tyo','ちょ'],['cha','ちゃ'],['chu','ちゅ'],['cho','ちょ'],['che','ちぇ'],
-        ['dya','ぢゃ'],['dyu','ぢゅ'],['dyo','ぢょ'],['nya','にゃ'],['nyu','にゅ'],['nyo','にょ'],['hya','ひゃ'],['hyu','ひゅ'],['hyo','ひょ'],
-        ['mya','みゃ'],['myu','みゅ'],['myo','みょ'],['rya','りゃ'],['ryu','りゅ'],['ryo','りょ'],['gya','ぎゃ'],['gyu','ぎゅ'],['gyo','ぎょ'],
-        ['bya','びゃ'],['byu','びゅ'],['byo','びょ'],['pya','ぴゃ'],['pyu','ぴゅ'],['pyo','ぴょ'],['kya','きゃ'],['kyu','きゅ'],['kyo','きょ'],
-        ['sya','しゃ'],['syu','しゅ'],['syo','しょ'],['zya','じゃ'],['zyu','じゅ'],['zyo','じょ'],['ja' ,'じゃ'],['ju' ,'じゅ'],['jo' ,'じょ'],['je','じぇ'],
-        ['dzu','づ'],['ka','か'],['ki','き'],['ku','く'],['ke','け'],['ko','こ'],['sa','さ'],['si','し'],['su','す'],['se','せ'],['so','そ'],
-        ['ta','た'],['ti','ち'],['te','て'],['to','と'],['na','な'],['ni','に'],['nu','ぬ'],['ne','ね'],['no','の'],['ha','は'],['hi','ひ'],['hu','ふ'],['he','へ'],['ho','ほ'],
-        ['ma','ま'],['mi','み'],['mu','む'],['me','め'],['mo','も'],['ya','や'],['yu','ゆ'],['yo','よ'],['ra','ら'],['ri','り'],['ru','る'],['re','れ'],['ro','ろ'],
-        ['wa','わ'],['wi','ゐ'],['we','ゑ'],['wo','を'],['ga','が'],['gi','ぎ'],['gu','ぐ'],['ge','げ'],['go','ご'],['za','ざ'],['zi','じ'],['zu','ず'],['ze','ぜ'],['zo','ぞ'],
-        ['da','だ'],['di','ぢ'],['du','づ'],['de','で'],['do','ど'],['ba','ば'],['bi','び'],['bu','ぶ'],['be','べ'],['bo','ぼ'],['pa','ぱ'],['pi','ぴ'],['pu','ぷ'],['pe','ぺ'],['po','ぽ'],
-        ['fa','ふぁ'],['fi','ふぃ'],['fu','ふ'],['fe','ふぇ'],['fo','ふぉ'],['xa','ぁ'],['xi','ぃ'],['xu','ぅ'],['xe','ぇ'],['xo','ぉ'],['xya','ゃ'],['xyu','ゅ'],['xyo','ょ'],['xtu','っ'],
-        ['la','ぁ'],['li','ぃ'],['lu','ぅ'],['le','ぇ'],['lo','ぉ'],['lya','ゃ'],['lyu','ゅ'],['lyo','ょ'],['ltu','っ'],['ji','じ'],['ju','じゅ'],['va','ヴぁ'],['vi','ヴぃ'],['vu','ヴ'],['ve','ヴぇ'],['vo','ヴぉ'],
+        // 4文字
+        ['xtsu','っ'],['ltsu','っ'],
+        // 3文字優先
+        ['chi','ち'],['tsu','つ'],['sha','しゃ'],['shi','し'],['shu','しゅ'],['sho','しょ'],
+        ['tya','ちゃ'],['tu','つ'],['tyu','ちゅ'],['tye','ちぇ'],['tyo','ちょ'],
+        ['cha','ちゃ'],['chu','ちゅ'],['cho','ちょ'],['che','ちぇ'],
+        ['dya','ぢゃ'],['dyu','ぢゅ'],['dyo','ぢょ'],
+        ['nya','にゃ'],['nyu','にゅ'],['nyo','にょ'],
+        ['hya','ひゃ'],['hyu','ひゅ'],['hyo','ひょ'],
+        ['mya','みゃ'],['myu','みゅ'],['myo','みょ'],
+        ['rya','りゃ'],['ryu','りゅ'],['ryo','りょ'],
+        ['gya','ぎゃ'],['gyu','ぎゅ'],['gyo','ぎょ'],
+        ['bya','びゃ'],['byu','びゅ'],['byo','びょ'],
+        ['pya','ぴゃ'],['pyu','ぴゅ'],['pyo','ぴょ'],
+        ['kya','きゃ'],['kyu','きゅ'],['kyo','きょ'],
+        ['sya','しゃ'],['syu','しゅ'],['syo','しょ'],
+        ['zya','じゃ'],['zyu','じゅ'],['zyo','じょ'],
+        ['ja' ,'じゃ'],['ju' ,'じゅ'],['jo' ,'じょ'],['je','じぇ'],
+        ['dzu','づ'],
+        // 2文字
+        ['ka','か'],['ki','き'],['ku','く'],['ke','け'],['ko','こ'],
+        ['sa','さ'],['si','し'],['su','す'],['se','せ'],['so','そ'],
+        ['ta','た'],['ti','ち'],['te','て'],['to','と'],
+        ['na','な'],['ni','に'],['nu','ぬ'],['ne','ね'],['no','の'],
+        ['ha','は'],['hi','ひ'],['hu','ふ'],['he','へ'],['ho','ほ'],
+        ['ma','ま'],['mi','み'],['mu','む'],['me','め'],['mo','も'],
+        ['ya','や'],['yu','ゆ'],['yo','よ'],
+        ['ra','ら'],['ri','り'],['ru','る'],['re','れ'],['ro','ろ'],
+        ['wa','わ'],['wi','ゐ'],['we','ゑ'],['wo','を'],
+        ['ga','が'],['gi','ぎ'],['gu','ぐ'],['ge','げ'],['go','ご'],
+        ['za','ざ'],['zi','じ'],['zu','ず'],['ze','ぜ'],['zo','ぞ'],
+        ['da','だ'],['di','ぢ'],['du','づ'],['de','で'],['do','ど'],
+        ['ba','ば'],['bi','び'],['bu','ぶ'],['be','べ'],['bo','ぼ'],
+        ['pa','ぱ'],['pi','ぴ'],['pu','ぷ'],['pe','ぺ'],['po','ぽ'],
+        ['fa','ふぁ'],['fi','ふぃ'],['fu','ふ'],['fe','ふぇ'],['fo','ふぉ'],
+        ['xa','ぁ'],['xi','ぃ'],['xu','ぅ'],['xe','ぇ'],['xo','ぉ'],
+        ['xya','ゃ'],['xyu','ゅ'],['xyo','ょ'],['xtu','っ'],
+        ['la','ぁ'],['li','ぃ'],['lu','ぅ'],['le','ぇ'],['lo','ぉ'],
+        ['lya','ゃ'],['lyu','ゅ'],['lyo','ょ'],['ltu','っ'],
+        ['ji','じ'],['ju','じゅ'],
+        ['va','ヴぁ'],['vi','ヴぃ'],['vu','ヴ'],['ve','ヴぇ'],['vo','ヴぉ'],
+        // 1文字母音
         ['a','あ'],['i','い'],['u','う'],['e','え'],['o','お'],
+        // n は特別処理するのでここには入れない
     ];
 
+    // ローマ字バッファを変換。変換できた文字を返し、残りをバッファに残す
     function tryConvertRoma(buf) {
-        if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') { return { out: 'っ', rest: buf.slice(1) }; }
-        for (const [roma, hira] of ROMA_TABLE) { if (buf.startsWith(roma)) return { out: hira, rest: buf.slice(roma.length) }; }
-        if (buf.length >= 5) return { out: buf[0], rest: buf.slice(1) };
+        // っ: 同じ子音が2つ続いた場合（n以外）
+        if (buf.length >= 2 && buf[0] === buf[1] && buf[0] !== 'n') {
+            return { out: 'っ', rest: buf.slice(1) };
+        }
+        // 長い順にマッチ試行
+        for (const [roma, hira] of ROMA_TABLE) {
+            if (buf.startsWith(roma)) {
+                return { out: hira, rest: buf.slice(roma.length) };
+            }
+        }
+        // バッファが長くなりすぎたら先頭を捨てる
+        if (buf.length >= 5) {
+            return { out: buf[0], rest: buf.slice(1) };
+        }
         return null;
     }
 
     function flushRomaBuffer(forceFlush) {
         let result = '';
-        if (romaBuffer === 'n') { if (forceFlush) { result = 'ん'; romaBuffer = ''; } }
-        else {
+        if (romaBuffer === 'n') {
+            if (forceFlush) { result = 'ん'; romaBuffer = ''; }
+        } else {
             const res = tryConvertRoma(romaBuffer);
             if (res) {
-                result = res.out; romaBuffer = res.rest;
-                if (romaBuffer.length > 0) result += flushRomaBuffer(false);
+                result = res.out;
+                romaBuffer = res.rest;
+                if (romaBuffer.length > 0) {
+                    const more = flushRomaBuffer(false);
+                    result += more;
+                }
             }
         }
         return result;
     }
 
     function inputRomaChar(c) {
-        const letter = c.toLowerCase(); const isVowel = 'aiueo'.includes(letter);
+        const letter = c.toLowerCase();
+        const isVowel = 'aiueo'.includes(letter);
+
+        // 「ん」の判定:
+        // バッファが 'n' のとき:
+        //   - 次が 'n' → 'nn' で「ん」確定、バッファリセット
+        //   - 次が 母音(a/i/u/e/o) → na/ni/nu/ne/no として処理（「ん」にしない）
+        //   - 次が その他の子音 → 「ん」確定してから次の文字をバッファへ
         if (romaBuffer === 'n') {
-            if (letter === 'n') { inputs[activeInputIdx] += 'ん'; romaBuffer = ''; updateDisplay(); return; }
-            else if (!isVowel) { inputs[activeInputIdx] += 'ん'; romaBuffer = ''; }
+            if (letter === 'n') {
+                // nn → 「ん」確定
+                inputs[activeInputIdx] += 'ん';
+                romaBuffer = '';
+                updateDisplay();
+                return;
+            } else if (!isVowel) {
+                // 子音が来た → 「ん」確定
+                inputs[activeInputIdx] += 'ん';
+                romaBuffer = '';
+            }
+            // 母音が来た場合はそのまま（na/ni等として処理続行）
         }
-        romaBuffer += letter; let converted = '';
+
+        romaBuffer += letter;
+
+        let converted = '';
         while (romaBuffer.length > 0) {
             const res = tryConvertRoma(romaBuffer);
-            if (res) { converted += res.out; romaBuffer = res.rest; } else break;
+            if (res) {
+                converted += res.out;
+                romaBuffer = res.rest;
+            } else {
+                break;
+            }
         }
         if (converted) inputs[activeInputIdx] += converted;
     }
 
+
+    // ===== Google IME API による漢字変換 =====
     async function fetchHenkan(hiragana) {
         try {
             const url = `https://www.google.com/transliterate?langpair=ja-Hira|ja&text=${encodeURIComponent(hiragana + ',')}`;
-            const res = await fetch(url); const json = await res.json();
+            const res = await fetch(url);
+            const json = await res.json();
             const candidates = [];
             json.forEach(seg => { if (seg[1]) seg[1].forEach(c => { if (!candidates.includes(c)) candidates.push(c); }); });
             return candidates.length > 0 ? candidates : [hiragana];
-        } catch(e) { return [hiragana]; }
+        } catch(e) {
+            return [hiragana];
+        }
     }
 
     function showHenkanPanel(candidates, base) {
-        henkanMode = true; henkanList = candidates; henkanBase = base; henkanIdx  = 0;
-        const panel = document.getElementById('henkan-panel'); panel.innerHTML = '';
+        henkanMode = true;
+        henkanList = candidates;
+        henkanBase = base;
+        henkanIdx  = 0;
+        const panel = document.getElementById('henkan-panel');
+        panel.innerHTML = '';
         candidates.forEach((c, i) => {
-            const el = document.createElement('div'); el.className = 'henkan-item' + (i === 0 ? ' selected' : ''); el.textContent = c;
+            const el = document.createElement('div');
+            el.className = 'henkan-item' + (i === 0 ? ' selected' : '');
+            el.textContent = c;
             el.addEventListener('touchstart', (e) => { e.preventDefault(); selectHenkan(i); }, {passive: false});
             el.addEventListener('mousedown',  (e) => { e.preventDefault(); selectHenkan(i); });
             panel.appendChild(el);
@@ -767,126 +763,316 @@
     }
 
     function selectHenkan(idx) {
-        const chosen = henkanList[idx]; const cur = inputs[activeInputIdx];
-        if (cur.endsWith(henkanBase)) inputs[activeInputIdx] = cur.slice(0, cur.length - henkanBase.length) + chosen;
-        else inputs[activeInputIdx] += chosen;
-        closeHenkanPanel(); updateDisplay();
+        const chosen = henkanList[idx];
+        const cur = inputs[activeInputIdx];
+        if (cur.endsWith(henkanBase)) {
+            inputs[activeInputIdx] = cur.slice(0, cur.length - henkanBase.length) + chosen;
+        } else {
+            inputs[activeInputIdx] += chosen;
+        }
+        closeHenkanPanel();
+        updateDisplay();
     }
 
     function closeHenkanPanel() {
-        henkanMode = false; henkanList = []; henkanBase = ''; henkanIdx  = 0;
-        const panel = document.getElementById('henkan-panel'); panel.style.display = 'none'; panel.innerHTML = '';
+        henkanMode = false;
+        henkanList = [];
+        henkanBase = '';
+        henkanIdx  = 0;
+        const panel = document.getElementById('henkan-panel');
+        panel.style.display = 'none';
+        panel.innerHTML = '';
     }
 
-    function getTrailingHiragana(str) { const m = str.match(/[\u3041-\u3096ー]+$/); return m ? m[0] : ''; }
+    function getTrailingHiragana(str) {
+        const m = str.match(/[\u3041-\u3096ー]+$/);
+        return m ? m[0] : '';
+    }
 
+    // ===== Input handler =====
     function handleInput(key) {
         if (isWaiting) return;
         if (document.getElementById('admin-screen').classList.contains('active-screen')) return;
         if (document.getElementById('game-container').style.display !== 'flex') return;
-        if (key === 'Shift') { isShift = !isShift; updateKeyboardDisplay(); return; }
-        if (key === 'Zenkaku') { if (isZenkakuFixed) return; isZenkaku = !isZenkaku; romaBuffer = ''; updateKeyboardDisplay(); return; }
+
+        if (key === 'Shift') {
+            isShift = !isShift;
+            updateKeyboardDisplay();
+            return;
+        }
+
+        // 全角半角トグルは全角固定時は無効
+        if (key === 'Zenkaku') {
+            if (isZenkakuFixed) return; // 固定時は切り替え不可
+            isZenkaku = !isZenkaku;
+            romaBuffer = '';
+            updateKeyboardDisplay();
+            return;
+        }
+
         flashKey(key);
+
         if (key === 'Backspace') {
             if (henkanMode) { closeHenkanPanel(); updateDisplay(); return; }
-            if (isZenkaku && romaBuffer.length > 0) romaBuffer = romaBuffer.slice(0, -1);
-            else if (inputs[activeInputIdx] === '') { if (activeInputIdx > 0) activeInputIdx--; }
-            else inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
-        } else if (key === 'Enter') {
-            if (henkanMode) { selectHenkan(henkanIdx); return; }
             if (isZenkaku && romaBuffer.length > 0) {
-                const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
+                romaBuffer = romaBuffer.slice(0, -1);
+            } else if (inputs[activeInputIdx] === '') {
+                if (activeInputIdx > 0) activeInputIdx--;
+            } else {
+                inputs[activeInputIdx] = inputs[activeInputIdx].slice(0, -1);
+            }
+        } else if (key === 'Enter') {
+            if (henkanMode) {
+                selectHenkan(henkanIdx);
+                return;
+            }
+            if (isZenkaku && romaBuffer.length > 0) {
+                const flushed = flushRomaBuffer(true);
+                if (flushed) inputs[activeInputIdx] += flushed;
                 romaBuffer = '';
             }
-            if (inputs.length > 1 && activeInputIdx < inputs.length - 1) activeInputIdx++;
-            else checkAnswer();
+            if (inputs.length > 1 && activeInputIdx < inputs.length - 1) {
+                activeInputIdx++;
+            } else {
+                checkAnswer();
+            }
         } else if (key === ' ') {
             if (isZenkaku) {
+                // バッファ残りをフラッシュ
                 if (romaBuffer.length > 0) {
-                    const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
-                    romaBuffer = ''; updateDisplay();
+                    const flushed = flushRomaBuffer(true);
+                    if (flushed) inputs[activeInputIdx] += flushed;
+                    romaBuffer = '';
+                    updateDisplay();
                 }
                 if (henkanMode) {
                     henkanIdx = (henkanIdx + 1) % henkanList.length;
-                    document.querySelectorAll('.henkan-item').forEach((el, i) => el.classList.toggle('selected', i === henkanIdx));
+                    document.querySelectorAll('.henkan-item').forEach((el, i) => {
+                        el.classList.toggle('selected', i === henkanIdx);
+                    });
                 } else {
                     const hira = getTrailingHiragana(inputs[activeInputIdx]);
-                    if (hira.length > 0) fetchHenkan(hira).then(candidates => { showHenkanPanel(candidates, hira); updateDisplay(); });
+                    if (hira.length > 0) {
+                        fetchHenkan(hira).then(candidates => {
+                            showHenkanPanel(candidates, hira);
+                            updateDisplay();
+                        });
+                    }
                 }
                 return;
             }
-            inputs[activeInputIdx] += ' '; if (activeInputIdx < inputs.length - 1) activeInputIdx++;
+            inputs[activeInputIdx] += ' ';
+            if (activeInputIdx < inputs.length - 1) activeInputIdx++;
         } else if (key === 'ArrowRight') {
             if (isZenkaku && romaBuffer.length > 0) {
-                const flushed = flushRomaBuffer(true); if (flushed) inputs[activeInputIdx] += flushed;
+                const flushed = flushRomaBuffer(true);
+                if (flushed) inputs[activeInputIdx] += flushed;
                 romaBuffer = '';
             }
-            if (activeInputIdx < inputs.length - 1) activeInputIdx++;
-        } else if (/^[a-z]$/i.test(key)) {
-            if (isZenkaku) inputRomaChar(key);
-            else inputs[activeInputIdx] += isShift ? key.toUpperCase() : key;
-        } else if (/^[0-9]$/.test(key)) {
-            if (isShift) inputs[activeInputIdx] += key;
-            else inputs[activeInputIdx] += SUB_DIGITS[parseInt(key) - 1];
-        } else if (key === ';') inputs[activeInputIdx] += '+';
+            inputs[activeInputIdx] += '→';
+        } else if (key === ';') {
+            inputs[activeInputIdx] += '+';
+        } else if (/^[1-9]$/.test(key)) {
+            const n = parseInt(key) - 1;
+            if (isShift) {
+                inputs[activeInputIdx] += NRM_DIGITS[n];
+            } else {
+                inputs[activeInputIdx] += SUB_DIGITS[n];
+            }
+        } else if (/^[a-zA-Z]$/.test(key)) {
+            if (isZenkaku) {
+                inputRomaChar(key.toLowerCase());
+            } else {
+                // 通常モード(isShift=false): 小文字 / Shiftモード(isShift=true): 大文字
+                inputs[activeInputIdx] += isShift ? key.toUpperCase() : key.toLowerCase();
+            }
+        } else {
+            return;
+        }
+
+        updateDisplay();
+    }
+
+    // ===== Render =====
+    const VER_LABELS = [
+        '元素記号を答える',
+        '元素名を答える',
+        '分子名を化学式で答える',
+        '化学式を分子名で答える',
+        '反応を化学式で答える',
+    ];
+
+    const CHANGE_PAIRS = [[0,1],[2,3]];
+
+    function verStart(vi) {
+        return vi === 0 ? 0 : (window.hani_end[vi-1] + 1);
+    }
+
+    function globalIdxToVerIdx(globalIdx) {
+        for (let vi = 0; vi < window.hani_end.length; vi++) {
+            if (globalIdx <= window.hani_end[vi]) return vi;
+        }
+        return -1;
+    }
+
+    function getPairVer(vi) {
+        for (const [a, b] of CHANGE_PAIRS) {
+            if (vi === a) return b;
+            if (vi === b) return a;
+        }
+        return null;
+    }
+
+    function resolveQuestion(globalIdx) {
+        const vi = globalIdxToVerIdx(globalIdx);
+        const localIdx = globalIdx - verStart(vi);
+        const pairVi = getPairVer(vi);
+
+        let mondai = window.rawMondai[globalIdx] || '';
+        let kotae  = window.rawKotaeGroups[globalIdx] || [];
+        let kaitouran = window.kaitouran[globalIdx] || '';
+
+        const kotaeHasChange = kotae.some(k => k === 'change');
+        const mondaiIsChange = mondai === 'change';
+
+        if (pairVi !== null && (kotaeHasChange || mondaiIsChange)) {
+            const pairStart = verStart(pairVi);
+            const pairGlobalIdx = pairStart + localIdx;
+            const pairMondai   = window.rawMondai[pairGlobalIdx] || '';
+            const pairKotae    = window.rawKotaeGroups[pairGlobalIdx] || [];
+            const pairKaitouran= window.kaitouran[pairGlobalIdx] || '';
+
+            if (kotaeHasChange) {
+                kotae = [pairMondai];
+                kaitouran = '()';
+            }
+            if (mondaiIsChange) {
+                mondai = pairKotae.join('');
+                kaitouran = pairKaitouran;
+            }
+        }
+
+        return { mondai, kotae, kaitouran };
+    }
+
+    function renderVerList() {
+        const listEl = document.getElementById('ver-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        const count = Math.min(window.hani_end.length, 5);
+        for (let i = 0; i < count; i++) {
+            const val = window.hani_end[i];
+            const btn = document.createElement('button');
+            btn.className = 'menu-btn';
+            btn.innerText = VER_LABELS[i] || `Ver.${i + 1}`;
+            btn.onclick = () => {
+                selectedVerIdx = i;
+                const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
+                currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
+                showScreen('order-screen');
+            };
+            listEl.appendChild(btn);
+        }
+    }
+
+    function setOrder(o) { playOrder = o; showScreen('style-screen'); }
+    function setBaseStyle(s) { playStyle = s; showScreen('substyle-screen'); }
+    function setFinalStyle(s) {
+        subStyle = s; correctCount = 0; startGame();
+    }
+
+    function startGame() {
+        currentPos = 0; correctCount = 0; totalQuestions = 0;
+        retryPool = []; wrongAnswers = [];
+        if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
+        totalQuestions = currentPool.length;
+        showScreen('');
+        document.getElementById('game-container').style.display = 'flex';
+        document.getElementById('main-keyboard').style.display = 'block';
+        document.getElementById('shift-banner').style.display = 'block';
+
+        // 全角固定バージョン判定
+        isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
+        isZenkaku = isZenkakuFixed; // 固定バージョンは最初から全角ON
+
+        isShift = false; // 必ず通常モードで開始
+        romaBuffer = '';
+        closeHenkanPanel();
+        updateKeyboardDisplay();
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        const idx = currentPool[currentPos];
+        const { mondai, kotae: ans, kaitouran: template } = resolveQuestion(idx);
+        document.getElementById('mondai-display').innerText = mondai;
+        const area = document.getElementById('answer-area');
+        area.innerHTML = '';
+
+        const parts = template.split('()');
+        inputs = new Array(parts.length - 1).fill('');
+        activeInputIdx = 0;
+
+        parts.forEach((pt, i) => {
+            if (pt !== '') {
+                const span = document.createElement('span');
+                span.innerText = pt;
+                area.appendChild(span);
+            }
+            if (i < parts.length - 1) {
+                const b = document.createElement('div');
+                b.className = 'input-box';
+                b.id = `box-${i}`;
+                const ansLen = (ans[i] || '').length;
+                if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
+                area.appendChild(b);
+            }
+        });
+
         updateDisplay();
     }
 
     function updateDisplay() {
         inputs.forEach((v, i) => {
-            const b = document.getElementById(`box-${i}`); if (!b) return;
-            b.classList.remove('active-box'); b.innerHTML = '';
+            const b = document.getElementById(`box-${i}`);
+            if (!b) return;
+            b.classList.remove('active-box');
+            b.innerHTML = '';
             if (i === activeInputIdx) {
-                b.classList.add('active-box'); b.style.color = '#007bff';
-                const confirmed = document.createElement('span'); confirmed.textContent = v.replace(/ /g, ' '); b.appendChild(confirmed);
+                b.classList.add('active-box');
+                b.style.color = '#007bff';
+                const confirmed = document.createElement('span');
+                confirmed.textContent = v.replace(/ /g, ' ');
+                b.appendChild(confirmed);
                 if (isZenkaku && romaBuffer.length > 0) {
-                    const pending = document.createElement('span'); pending.textContent = romaBuffer;
+                    const pending = document.createElement('span');
+                    pending.textContent = romaBuffer;
                     pending.style.cssText = 'text-decoration: underline; color: #0056b3; font-style: italic;';
                     b.appendChild(pending);
                 }
-                const cursor = document.createElement('span'); cursor.className = 'cursor'; b.appendChild(cursor);
+                const c = document.createElement('span');
+                c.className = 'cursor';
+                b.appendChild(c);
             } else {
-                b.style.color = v ? '#333' : '#ccc'; b.innerText = (v || '').replace(/ /g, ' ');
+                b.innerText = (v || '').replace(/ /g, ' ');
+                b.style.color = v ? '#333' : '#ccc';
             }
         });
-    }
-
-    function resolveQuestion(idx) {
-        if (idx < 0 || idx >= window.rawMondai.length) return { mondai: '?', kotae: ['?'], kaitouran: '()' };
-        let mondai = window.rawMondai[idx];
-        let kotaeGroup = window.rawKotaeGroups[idx] || [];
-        let kotae = Array.isArray(kotaeGroup) ? kotaeGroup : [kotaeGroup];
-        const kaitouran = window.kaitouran[idx] || '()';
-        const verStart = selectedVerIdx === 0 ? 0 : (window.hani_end[selectedVerIdx - 1] + 1);
-        const relativeIdx = idx - verStart;
-        for (const [v1, v2] of CHANGE_PAIRS) {
-            if (selectedVerIdx === v1 || selectedVerIdx === v2) {
-                const targetVer = selectedVerIdx === v1 ? v2 : v1;
-                const pairStart = targetVer === 0 ? 0 : (window.hani_end[targetVer - 1] + 1);
-                const pairIdx = pairStart + relativeIdx;
-                const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
-                const pairKotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
-                if (mondai === 'change') {
-                    mondai = window.rawMondai[pairIdx] || '?';
-                    kotae = pairKotae;
-                } else if (kotae.includes('change')) {
-                    kotae = [window.rawMondai[pairIdx] || '?'];
-                }
-            }
-        }
-        return { mondai, kotae, kaitouran };
     }
 
     function checkAnswer() {
         const idx = currentPool[currentPos];
         const { mondai: mondaiText, kotae: ans, kaitouran: template } = resolveQuestion(idx);
+
         const ok = inputs.every((v, i) => v.trim() === (ans[i] || ''));
+
         const parts = template.split('()');
         let correctSentence = '';
         parts.forEach((pt, i) => {
             correctSentence += pt;
             if (i < parts.length - 1) correctSentence += `(${ans[i] || ''})`;
         });
+
         if (ok) {
             if (subStyle === 'gacha') {
                 correctCount++;
@@ -906,32 +1092,34 @@
 
     function showMsg(m, c, cb, sub = '', gachaReady = false) {
         isWaiting = true;
-        document.getElementById('main-keyboard').style.display = 'none';
-        document.getElementById('tab-header').style.display = 'none';
-        document.getElementById('memo-container').style.display = 'none';
-        document.getElementById('shift-banner').style.display = 'none';
         const o = document.getElementById('message-overlay');
         document.getElementById('message-content').innerText = m;
         document.getElementById('message-content').style.color = c;
         document.getElementById('message-sub').innerText = sub;
         document.getElementById('gacha-result').style.display = 'none';
-        const gBtn = document.getElementById('gacha-btn'); const nBtn = document.getElementById('next-btn-manual'); const mBtn = document.getElementById('mix-btn');
-        if (gachaReady) { gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none'; }
-        else { gBtn.style.display = 'none'; mBtn.style.display = 'none'; nBtn.style.display = cb ? 'none' : 'block'; }
+
+        const gBtn = document.getElementById('gacha-btn');
+        const nBtn = document.getElementById('next-btn-manual');
+        const mBtn = document.getElementById('mix-btn');
+
+        if (gachaReady) {
+            gBtn.style.display = 'block'; mBtn.style.display = 'block'; nBtn.style.display = 'none';
+        } else {
+            gBtn.style.display = 'none'; mBtn.style.display = 'none';
+            nBtn.style.display = cb ? 'none' : 'block';
+        }
+
         o.style.display = 'flex';
-        if (cb) setTimeout(() => {
-            o.style.display = 'none'; isWaiting = false;
-            document.getElementById('main-keyboard').style.display = 'block';
-            document.getElementById('shift-banner').style.display = 'block';
-            if (selectedVerIdx === 4) document.getElementById('tab-header').style.display = 'block';
-            cb();
-        }, 1000);
+        if (cb) setTimeout(() => { o.style.display = 'none'; isWaiting = false; cb(); }, 1000);
     }
 
     function pullGacha() {
         const rand = Math.random() * 100;
         let sum = 0, selected = GACHA_TABLE[0];
-        for (const item of GACHA_TABLE) { sum += item.prob; if (rand < sum) { selected = item; break; } }
+        for (const item of GACHA_TABLE) {
+            sum += item.prob;
+            if (rand < sum) { selected = item; break; }
+        }
         document.getElementById('gacha-btn').style.display = 'none';
         document.getElementById('mix-btn').style.display = 'none';
         const res = document.getElementById('gacha-result');
@@ -942,8 +1130,12 @@
     }
 
     function mixGacha() {
-        document.getElementById('gacha-btn').style.display = 'none'; document.getElementById('mix-btn').style.display = 'none';
-        setTimeout(() => { document.getElementById('gacha-btn').style.display = 'block'; document.getElementById('mix-btn').style.display = 'block'; }, 300);
+        document.getElementById('gacha-btn').style.display = 'none';
+        document.getElementById('mix-btn').style.display = 'none';
+        setTimeout(() => {
+            document.getElementById('gacha-btn').style.display = 'block';
+            document.getElementById('mix-btn').style.display = 'block';
+        }, 300);
     }
 
     function next() {
@@ -953,40 +1145,54 @@
                 currentPool = [...retryPool]; retryPool = [];
                 if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
                 currentPos = 0; loadQuestion();
-            } else { showAllEnd(); }
-        } else { loadQuestion(); }
+            } else {
+                showAllEnd();
+            }
+        } else {
+            loadQuestion();
+        }
     }
 
     function showAllEnd() {
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('main-keyboard').style.display = 'none';
         document.getElementById('shift-banner').style.display = 'none';
-        document.getElementById('tab-header').style.display = 'none';
-        document.getElementById('memo-container').style.display = 'none';
+
         const scoreEl = document.getElementById('allend-score');
-        if (playStyle === 'once') { scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`; }
-        else { scoreEl.innerText = '全問正解！'; }
-        const section = document.getElementById('wrong-list-section'); const listEl = document.getElementById('wrong-list');
+        if (playStyle === 'once') {
+            scoreEl.innerText = `${totalQuestions - wrongAnswers.length} / ${totalQuestions} 問正解`;
+        } else {
+            scoreEl.innerText = '全問正解！';
+        }
+
+        const section = document.getElementById('wrong-list-section');
+        const listEl = document.getElementById('wrong-list');
         listEl.innerHTML = '';
         if (wrongAnswers.length > 0) {
             section.style.display = 'block';
             wrongAnswers.forEach((item, i) => {
-                const div = document.createElement('div'); div.className = 'wrong-item';
+                const div = document.createElement('div');
+                div.className = 'wrong-item';
                 const highlighted = item.answer.replace(/\(([^)]*)\)/g, '(<span>$1</span>)');
-                div.innerHTML = `<div class="wi-mondai">Q${i+1}. ${item.mondai}</div><div class="wi-answer">正解: ${highlighted}</div>`;
+                div.innerHTML = `
+                    <div class="wi-mondai">Q${i+1}. ${item.mondai}</div>
+                    <div class="wi-answer">正解: ${highlighted}</div>`;
                 listEl.appendChild(div);
             });
-        } else { section.style.display = 'none'; }
+        } else {
+            section.style.display = 'none';
+        }
         document.getElementById('allend-overlay').style.display = 'flex';
     }
 
-    function goToStart() { document.getElementById('allend-overlay').style.display = 'none'; showScreen('start-screen'); }
-    
+    function goToStart() {
+        document.getElementById('allend-overlay').style.display = 'none';
+        showScreen('start-screen');
+    }
+
     function closeMessageAndNext() {
-        document.getElementById('message-overlay').style.display = 'none'; isWaiting = false;
-        document.getElementById('main-keyboard').style.display = 'block';
-        document.getElementById('shift-banner').style.display = 'block';
-        if (selectedVerIdx === 4) { document.getElementById('tab-header').style.display = 'block'; switchTab('keyboard'); }
+        document.getElementById('message-overlay').style.display = 'none';
+        isWaiting = false;
         next();
     }
 
@@ -998,79 +1204,47 @@
         if (id) document.getElementById(id).classList.add('active-screen');
     }
 
-    function renderVerList() {
-        const listEl = document.getElementById('ver-list'); if (!listEl) return;
-        listEl.innerHTML = ''; const count = Math.min(window.hani_end.length, 5);
-        for (let i = 0; i < count; i++) {
-            const val = window.hani_end[i]; const btn = document.createElement('button'); btn.className = 'menu-btn';
-            btn.innerText = VER_LABELS[i] || `Ver.${i + 1}`;
-            btn.onclick = () => {
-                selectedVerIdx = i; const start = i === 0 ? 0 : window.hani_end[i-1] + 1;
-                currentPool = Array.from({length: val - start + 1}, (_, k) => k + start);
-                showScreen('order-screen');
-            };
-            listEl.appendChild(btn);
+    function tryAdminAccess() {
+        const entered = prompt('Pass?');
+        if (entered === null) return;
+        const stored = String(window.adminPass ?? '');
+        if (entered === stored) {
+            showScreen('admin-screen');
+        } else {
+            alert(`NG（DB値: "${strong}"）`);
         }
     }
 
-    function setOrder(o) { playOrder = o; showScreen('style-screen'); }
-    function setBaseStyle(s) { playStyle = s; showScreen('substyle-screen'); }
-    function setFinalStyle(s) { subStyle = s; correctCount = 0; startGame(); }
-
-    function startGame() {
-        currentPos = 0; correctCount = 0; totalQuestions = 0; retryPool = []; wrongAnswers = [];
-        if (playOrder === 'random') currentPool.sort(() => Math.random() - 0.5);
-        totalQuestions = currentPool.length;
-        showScreen('');
-        document.getElementById('game-container').style.display = 'flex';
-        document.getElementById('main-keyboard').style.display = 'block';
-        document.getElementById('shift-banner').style.display = 'block';
-        if (selectedVerIdx === 4) { document.getElementById('tab-header').style.display = 'block'; switchTab('keyboard'); }
-        else { document.getElementById('tab-header').style.display = 'none'; document.getElementById('memo-container').style.display = 'none'; }
-        isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx); isZenkaku = isZenkakuFixed; isShift = false; romaBuffer = '';
-        closeHenkanPanel(); updateKeyboardDisplay(); loadQuestion();
+    // ===== Admin Console =====
+    function logAdmin(t) {
+        const c = document.getElementById('admin-console');
+        c.innerText += t + '\n';
+        c.scrollTop = c.scrollHeight;
     }
-
-    function loadQuestion() {
-        const idx = currentPool[currentPos]; const { mondai, kotae: ans, kaitouran: template } = resolveQuestion(idx);
-        document.getElementById('mondai-display').innerText = mondai;
-        const area = document.getElementById('answer-area'); area.innerHTML = '';
-        const parts = template.split('()'); inputs = new Array(parts.length - 1).fill(''); activeInputIdx = 0;
-        parts.forEach((pt, i) => {
-            if (pt !== '') { const span = document.createElement('span'); span.innerText = pt; area.appendChild(span); }
-            if (i < parts.length - 1) {
-                const b = document.createElement('div'); b.className = 'input-box'; b.id = `box-${i}`;
-                const ansLen = (ans[i] || '').length; if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
-                area.appendChild(b);
-            }
-        });
-        updateDisplay();
-    }
-
-    const VER_LABELS = ['元素記号を答える','元素名を答える','分子名を化学式で答える','化学式を分子名で答える','反応を化学式で答える'];
-    const CHANGE_PAIRS = [[0,1],[2,3]];
-    
-    function tryAdminAccess() {
-        const entered = prompt('Pass?'); if (entered === null) return;
-        const stored = String(window.adminPass ?? '');
-        if (entered === stored) { showScreen('admin-screen'); }
-        else { alert(`NG（DB値: "${stored}"）`); }
-    }
-    function logAdmin(t) { const c = document.getElementById('admin-console'); c.innerText += t + '\n'; c.scrollTop = c.scrollHeight; }
     function getListByName(name) {
-        if (name === 'mondai')    return window.rawMondai; if (name === 'kotae')     return window.rawKotaeGroups;
-        if (name === 'hani')      return window.hani_end; if (name === 'kaitouran') return window.kaitouran;
+        if (name === 'mondai')    return window.rawMondai;
+        if (name === 'kotae')     return window.rawKotaeGroups;
+        if (name === 'hani')      return window.hani_end;
+        if (name === 'kaitouran') return window.kaitouran;
         return null;
     }
     function processAdminCommand(e) {
         if (e.key !== 'Enter') return;
-        const input = document.getElementById('admin-input'); const full = input.value.trim(); input.value = '';
-        if (!full) return; logAdmin('> ' + full);
-        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || []; const cmd = p[0]?.toLowerCase();
+        const input = document.getElementById('admin-input');
+        const full = input.value.trim();
+        input.value = '';
+        if (!full) return;
+        logAdmin('> ' + full);
+        const p = full.match(/(".*?"|[^"\s]+)/g)?.map(x => x.replace(/"/g, '')) || [];
+        const cmd = p[0]?.toLowerCase();
+
         if (cmd === 'exit') showScreen('start-screen');
         else if (cmd === 'setpass') {
-            const newPass = p[1]; if (!newPass) return logAdmin('Usage: setpass <新しいパスワード>');
-            window.adminPass = newPass; window.saveToFirebase(); logAdmin(`パスワードを「${newPass}」に更新しました。`);
+            const newPass = p[1];
+            if (!newPass) return logAdmin('Usage: setpass <新しいパスワード>');
+            window.adminPass = newPass;
+            window.saveToFirebase();
+            logAdmin(`パスワードを「${newPass}」に更新しました。`);
         }
         else if (cmd === 'show') {
             const listName = p[1]?.toLowerCase();
@@ -1087,13 +1261,22 @@
                 const mondaiData = p[3], kotaeData = p[4] ? p[4].split(',') : [], kaitouranData = p[5];
                 if (!mondaiData || !kotaeData.length || !kaitouranData) return logAdmin('Usage: add <idx/f> all <mondai> <kotae> <kaitouran>');
                 const idxM = p[1]==='f' ? window.rawMondai.length : parseInt(p[1]);
-                window.rawMondai.splice(idxM, 0, mondaiData); window.rawKotaeGroups.splice(idxM, 0, kotaeData); window.kaitouran.splice(idxM, 0, kaitouranData);
-                logAdmin(`Added all [${idxM}]`); window.saveToFirebase();
+                window.rawMondai.splice(idxM, 0, mondaiData);
+                window.rawKotaeGroups.splice(idxM, 0, kotaeData);
+                window.kaitouran.splice(idxM, 0, kaitouranData);
+                logAdmin(`Added all [${idxM}]`);
+                window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list) return logAdmin('Error: List not found.');
+                const list = getListByName(listName);
+                if (!list) return logAdmin('Error: List not found.');
                 const idx = p[1]==='f' ? list.length : parseInt(p[1]);
-                let data = p[3]; if (listName==='kotae') data = data.split(','); if (listName==='hani') data = parseInt(data);
-                list.splice(idx, 0, data); logAdmin(`Added to ${listName} at [${idx}]`); window.saveToFirebase();
+                if (isNaN(idx)||idx<0) return logAdmin('Error: Invalid index.');
+                let data = p[3];
+                if (listName==='kotae') data = data.split(',');
+                if (listName==='hani')  data = parseInt(data);
+                list.splice(idx, 0, data);
+                logAdmin(`Added to ${listName} at [${idx}]`);
+                window.saveToFirebase();
             }
         }
         else if (cmd === 'replace') {
@@ -1102,45 +1285,92 @@
                 const mondaiData = p[3], kotaeData = p[4]?p[4].split(','):[], kaitouranData = p[5];
                 if (!mondaiData||!kotaeData.length||!kaitouranData) return logAdmin('Usage: replace <idx/f> all <mondai> <kotae> <kaitouran>');
                 const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                window.rawMondai[idxM] = mondaiData; window.rawKotaeGroups[idxM] = kotaeData; window.kaitouran[idxM] = kaitouranData;
-                logAdmin(`Replaced all [${idxM}]`); window.saveToFirebase();
+                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
+                window.rawMondai[idxM] = mondaiData;
+                window.rawKotaeGroups[idxM] = kotaeData;
+                window.kaitouran[idxM] = kaitouranData;
+                logAdmin(`Replaced all [${idxM}]`);
+                window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list) return logAdmin('Error: List not found.');
+                const list = getListByName(listName);
+                if (!list) return logAdmin('Error: List not found.');
                 const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
-                let data = p[3]; if (listName==='kotae') data = data.split(','); if (listName==='hani') data = parseInt(data);
-                list[idx] = data; logAdmin(`Replaced ${listName} [${idx}]`); window.saveToFirebase();
+                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
+                let data = p[3];
+                if (listName==='kotae') data = data.split(',');
+                if (listName==='hani')  data = parseInt(data);
+                list[idx] = data;
+                logAdmin(`Replaced ${listName} [${idx}]`);
+                window.saveToFirebase();
             }
         }
         else if (cmd === 'remove') {
             const listName = p[2]?.toLowerCase();
             if (listName === 'all') {
                 const idxM = p[1]==='f' ? window.rawMondai.length-1 : parseInt(p[1]);
-                window.rawMondai.splice(idxM,1); window.rawKotaeGroups.splice(idxM,1); window.kaitouran.splice(idxM,1);
-                logAdmin(`Removed all [${idxM}]`); window.saveToFirebase();
+                if (isNaN(idxM)||idxM<0||idxM>=window.rawMondai.length) return logAdmin('Error: Invalid index.');
+                window.rawMondai.splice(idxM,1);
+                window.rawKotaeGroups.splice(idxM,1);
+                window.kaitouran.splice(idxM,1);
+                logAdmin(`Removed all [${idxM}]`);
+                window.saveToFirebase();
             } else {
-                const list = getListByName(listName); if (!list||list.length===0) return logAdmin('Error: List empty or not found.');
+                const list = getListByName(listName);
+                if (!list||list.length===0) return logAdmin('Error: List empty or not found.');
                 const idx = p[1]==='f' ? list.length-1 : parseInt(p[1]);
-                list.splice(idx,1); logAdmin(`Removed from ${listName} [${idx}]`); window.saveToFirebase();
+                if (isNaN(idx)||idx<0||idx>=list.length) return logAdmin('Error: Invalid index.');
+                list.splice(idx,1);
+                logAdmin(`Removed from ${listName} [${idx}]`);
+                window.saveToFirebase();
             }
+        }
+        else {
+            logAdmin(`Unknown command: ${cmd}`);
+            logAdmin('Commands: exit, setpass, show, add, replace, remove');
         }
     }
 
-    const ALLOWED_PHYSICAL = new Set(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','1','2','3','4','5','6','7','8','9','Enter','Backspace','Shift','ArrowRight',';',' ']);
+    // ===== Physical keyboard support =====
+    const ALLOWED_PHYSICAL = new Set([
+        'a','b','c','d','e','f','g','h','i','j','k','l','m',
+        'n','o','p','q','r','s','t','u','v','w','x','y','z',
+        '1','2','3','4','5','6','7','8','9',
+        'Enter', 'Backspace', 'Shift', 'ArrowRight', ';', ' '
+    ]);
+
     window.addEventListener('keydown', (e) => {
         if (document.activeElement.id === 'admin-input') return;
+
         let key = e.key;
-        if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') { e.preventDefault(); handleInput('Zenkaku'); return; }
+
+        if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') {
+            e.preventDefault();
+            handleInput('Zenkaku');
+            return;
+        }
+
         if (key === 'Shift') { e.preventDefault(); handleInput('Shift'); return; }
+
         e.preventDefault();
+
         if (/^[A-Z]$/.test(key)) key = key.toLowerCase();
+
         if (!ALLOWED_PHYSICAL.has(key)) return;
         handleInput(key);
     });
 
-    window.handleInput = handleInput; window.setOrder = setOrder; window.setBaseStyle = setBaseStyle; window.setFinalStyle = setFinalStyle;
-    window.goToStart = goToStart; window.closeMessageAndNext = closeMessageAndNext; window.pullGacha = pullGacha;
-    window.mixGacha = mixGacha; window.tryAdminAccess = tryAdminAccess; window.processAdminCommand = processAdminCommand;
-    window.renderVerList = renderVerList;
+    // Expose globals
+    window.handleInput          = handleInput;
+    window.setOrder             = setOrder;
+    window.setBaseStyle         = setBaseStyle;
+    window.setFinalStyle        = setFinalStyle;
+    window.goToStart            = goToStart;
+    window.closeMessageAndNext  = closeMessageAndNext;
+    window.pullGacha            = pullGacha;
+    window.mixGacha             = mixGacha;
+    window.tryAdminAccess       = tryAdminAccess;
+    window.processAdminCommand  = processAdminCommand;
+    window.renderVerList        = renderVerList;
 </script>
 </body>
 </html>
