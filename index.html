@@ -870,7 +870,7 @@
                     mondai = pairKotae.join('');
                     kotae = pairKotae;
                 } else if (kotae.includes('change')) {
-                    mondai = pairKotae.join('');
+                    mondai = window.rawMondai[pairIdx] || '?';
                     kotae = [window.rawMondai[pairIdx] || '?'];
                 }
             }
