@@ -867,10 +867,9 @@
                 const pairKotaeGroup = window.rawKotaeGroups[pairIdx] || [];
                 const pairKotae = Array.isArray(pairKotaeGroup) ? pairKotaeGroup : [pairKotaeGroup];
                 if (mondai === 'change') {
-                    mondai = pairKotae.join('');
+                    mondai = window.rawMondai[pairIdx] || '?';
                     kotae = pairKotae;
                 } else if (kotae.includes('change')) {
-                    mondai = window.rawMondai[pairIdx] || '?';
                     kotae = [window.rawMondai[pairIdx] || '?'];
                 }
             }
