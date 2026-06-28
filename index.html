@@ -803,11 +803,7 @@
 
         // 全角半角トグルは全角固定時は無効
         if (key === 'Zenkaku') {
-            if (isZenkakuFixed) return; // 固定時は切り替え不可
-            isZenkaku = !isZenkaku;
-            romaBuffer = '';
-            updateKeyboardDisplay();
-            return;
+            return; // 全角/半角切り替え無効
         }
 
         flashKey(key);
