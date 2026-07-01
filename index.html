@@ -1019,7 +1019,8 @@
                 const b = document.createElement('div');
                 b.className = 'input-box';
                 b.id = `box-${i}`;
-                const ansLen = (ans[i] || '').length;
+                const ansAlts = (ans[i] || '').split('&').map(a => a.trim());
+                const ansLen = Math.max(0, ...ansAlts.map(a => a.length));
                 if (ansLen > 0) b.style.minWidth = Math.max(50, ansLen * 14) + 'px';
                 area.appendChild(b);
             }
@@ -1060,13 +1061,19 @@
         const idx = currentPool[currentPos];
         const { mondai: mondaiText, kotae: ans, kaitouran: template } = resolveQuestion(idx);
 
-        const ok = inputs.every((v, i) => v.trim() === (ans[i] || ''));
+        const ok = inputs.every((v, i) => {
+            const alts = (ans[i] || '').split('&').map(a => a.trim());
+            return alts.includes(v.trim());
+        });
 
         const parts = template.split('()');
         let correctSentence = '';
         parts.forEach((pt, i) => {
             correctSentence += pt;
-            if (i < parts.length - 1) correctSentence += `(${ans[i] || ''})`;
+            if (i < parts.length - 1) {
+                const alts = (ans[i] || '').split('&').map(a => a.trim());
+                correctSentence += `(${alts.join(' / ')})`;
+            }
         });
 
         if (ok) {
