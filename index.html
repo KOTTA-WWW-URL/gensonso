@@ -304,6 +304,74 @@
             background: var(--shift-bg);
             color: #333;
         }
+
+        /* ===== キーボード/メモ タブ切り替え（反応を化学式で答える専用） ===== */
+        #kbd-tabs {
+            position: fixed;
+            bottom: var(--keyboard-total);
+            left: 0;
+            display: none;
+            z-index: 21;
+        }
+        .kbd-tab {
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            background: #c9ccd1;
+            color: #555;
+            cursor: pointer;
+            margin-right: 2px;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.08);
+        }
+        .kbd-tab.active {
+            background: #ffffff;
+            color: #007bff;
+        }
+
+        #memo-panel {
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            height: var(--keyboard-total);
+            background: var(--bg-color);
+            display: none;
+            flex-direction: column;
+            z-index: 15;
+            box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .memo-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 10px;
+            flex-shrink: 0;
+        }
+        .memo-tool {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #999;
+        }
+        .memo-tool.active {
+            background: #007bff;
+            color: #ffffff;
+        }
+        .memo-tool.danger {
+            color: #c0392b;
+        }
+        #memo-canvas {
+            flex: 1;
+            width: 100%;
+            background: #ffffff;
+            touch-action: none;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -482,6 +550,21 @@
     </div>
 </div>
 
+<!-- 反応を化学式で答えるVer専用：キーボード/メモ タブ -->
+<div id="kbd-tabs">
+    <button class="kbd-tab active" id="tab-keyboard" onclick="switchTab('keyboard')">⌨️ キーボード</button>
+    <button class="kbd-tab" id="tab-memo" onclick="switchTab('memo')">✏️ メモ</button>
+</div>
+
+<div id="memo-panel">
+    <div class="memo-toolbar">
+        <button class="memo-tool active" id="memo-pen-btn" onclick="setMemoTool('pen')">🖊 黒ペン</button>
+        <button class="memo-tool" id="memo-eraser-btn" onclick="setMemoTool('eraser')">🧹 消しゴム</button>
+        <button class="memo-tool danger" onclick="clearMemo()">🗑 全消し</button>
+    </div>
+    <canvas id="memo-canvas"></canvas>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -552,6 +635,13 @@
     let isWaiting = false;
     let correctCount = 0, totalQuestions = 0;
     let retryPool = [], wrongAnswers = [];
+
+    // キーボード/メモ タブ（反応を化学式で答えるVer専用）
+    let currentTab = 'keyboard'; // 'keyboard' | 'memo'
+    let memoTool = 'pen'; // 'pen' | 'eraser'
+    let memoDrawing = false;
+    let memoCtx = null;
+    let memoBound = false;
 
     // 選択中のバージョンインデックス（0-based）
     let selectedVerIdx = 0;
@@ -628,6 +718,104 @@
             btn.classList.add('active');
             setTimeout(() => btn.classList.remove('active'), 150);
         });
+    }
+
+    // ===== キーボード/メモ タブ切り替え =====
+    function switchTab(tab) {
+        if (selectedVerIdx !== 4) return; // 反応を化学式で答えるVer専用
+        currentTab = tab;
+        document.getElementById('tab-keyboard').classList.toggle('active', tab === 'keyboard');
+        document.getElementById('tab-memo').classList.toggle('active', tab === 'memo');
+        document.getElementById('main-keyboard').style.display = tab === 'keyboard' ? 'block' : 'none';
+        document.getElementById('memo-panel').style.display = tab === 'memo' ? 'flex' : 'none';
+        document.getElementById('shift-banner').style.display = tab === 'keyboard' ? 'block' : 'none';
+        if (tab === 'memo') {
+            requestAnimationFrame(initMemoCanvas);
+        }
+    }
+
+    // ===== メモ（お絵かき）機能 =====
+    function initMemoCanvas() {
+        const canvas = document.getElementById('memo-canvas');
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.round(rect.width), h = Math.round(rect.height);
+        if (w === 0 || h === 0) return;
+
+        if (canvas.width !== w || canvas.height !== h) {
+            const hasContent = canvas.width > 0 && canvas.height > 0;
+            const prevData = hasContent ? canvas.toDataURL() : null;
+            canvas.width = w;
+            canvas.height = h;
+            memoCtx = canvas.getContext('2d');
+            memoCtx.lineCap = 'round';
+            memoCtx.lineJoin = 'round';
+            if (prevData) {
+                const img = new Image();
+                img.onload = () => memoCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                img.src = prevData;
+            }
+        } else if (!memoCtx) {
+            memoCtx = canvas.getContext('2d');
+            memoCtx.lineCap = 'round';
+            memoCtx.lineJoin = 'round';
+        }
+
+        if (!memoBound) {
+            canvas.addEventListener('pointerdown', memoStart);
+            canvas.addEventListener('pointermove', memoMove);
+            canvas.addEventListener('pointerup', memoEnd);
+            canvas.addEventListener('pointercancel', memoEnd);
+            canvas.addEventListener('pointerleave', memoEnd);
+            memoBound = true;
+        }
+    }
+
+    function getMemoPos(e) {
+        const canvas = document.getElementById('memo-canvas');
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function memoStart(e) {
+        if (!memoCtx) return;
+        e.preventDefault();
+        memoDrawing = true;
+        const p = getMemoPos(e);
+        memoCtx.beginPath();
+        memoCtx.moveTo(p.x, p.y);
+    }
+
+    function memoMove(e) {
+        if (!memoDrawing || !memoCtx) return;
+        e.preventDefault();
+        const p = getMemoPos(e);
+        if (memoTool === 'eraser') {
+            memoCtx.globalCompositeOperation = 'destination-out';
+            memoCtx.lineWidth = 26;
+        } else {
+            memoCtx.globalCompositeOperation = 'source-over';
+            memoCtx.strokeStyle = '#000000';
+            memoCtx.lineWidth = 3;
+        }
+        memoCtx.lineTo(p.x, p.y);
+        memoCtx.stroke();
+    }
+
+    function memoEnd() {
+        memoDrawing = false;
+    }
+
+    function setMemoTool(tool) {
+        memoTool = tool;
+        document.getElementById('memo-pen-btn').classList.toggle('active', tool === 'pen');
+        document.getElementById('memo-eraser-btn').classList.toggle('active', tool === 'eraser');
+    }
+
+    function clearMemo() {
+        const canvas = document.getElementById('memo-canvas');
+        if (!canvas || !memoCtx) return;
+        memoCtx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
 
@@ -818,6 +1006,7 @@
     // ===== Input handler =====
     function handleInput(key) {
         if (isWaiting) return;
+        if (currentTab === 'memo') return;
         if (document.getElementById('admin-screen').classList.contains('active-screen')) return;
         if (document.getElementById('game-container').style.display !== 'flex') return;
 
@@ -1018,6 +1207,14 @@
         document.getElementById('game-container').style.display = 'flex';
 
         const isNumericVer = (selectedVerIdx === 6);
+        const isMemoVer = (selectedVerIdx === 4);
+
+        currentTab = 'keyboard';
+        document.getElementById('kbd-tabs').style.display = isMemoVer ? 'flex' : 'none';
+        document.getElementById('tab-keyboard').classList.add('active');
+        document.getElementById('tab-memo').classList.remove('active');
+        document.getElementById('memo-panel').style.display = 'none';
+
         document.getElementById('main-keyboard').style.display = isNumericVer ? 'none' : 'block';
         document.getElementById('numeric-keyboard').style.display = isNumericVer ? 'block' : 'none';
         document.getElementById('shift-banner').style.display = isNumericVer ? 'none' : 'block';
@@ -1195,7 +1392,10 @@
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('main-keyboard').style.display = 'none';
         document.getElementById('numeric-keyboard').style.display = 'none';
+        document.getElementById('memo-panel').style.display = 'none';
+        document.getElementById('kbd-tabs').style.display = 'none';
         document.getElementById('shift-banner').style.display = 'none';
+        currentTab = 'keyboard';
 
         const scoreEl = document.getElementById('allend-score');
         if (playStyle === 'once') {
@@ -1240,7 +1440,10 @@
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('main-keyboard').style.display = 'none';
         document.getElementById('numeric-keyboard').style.display = 'none';
+        document.getElementById('memo-panel').style.display = 'none';
+        document.getElementById('kbd-tabs').style.display = 'none';
         document.getElementById('shift-banner').style.display = 'none';
+        currentTab = 'keyboard';
         if (id) document.getElementById(id).classList.add('active-screen');
     }
 
@@ -1380,6 +1583,7 @@
 
     window.addEventListener('keydown', (e) => {
         if (document.activeElement.id === 'admin-input') return;
+        if (currentTab === 'memo') return;
 
         let key = e.key;
 
@@ -1419,6 +1623,9 @@
     window.tryAdminAccess       = tryAdminAccess;
     window.processAdminCommand  = processAdminCommand;
     window.renderVerList        = renderVerList;
+    window.switchTab            = switchTab;
+    window.setMemoTool          = setMemoTool;
+    window.clearMemo            = clearMemo;
 </script>
 </body>
 </html>
