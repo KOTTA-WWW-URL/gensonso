@@ -458,6 +458,30 @@
     </div>
 </div>
 
+<!-- 元素記号を元素番号で答えるVer専用：テンキー -->
+<div class="keyboard" id="numeric-keyboard">
+    <div class="row">
+        <button class="key" data-key="1" onclick="handleInput('1')">1</button>
+        <button class="key" data-key="2" onclick="handleInput('2')">2</button>
+        <button class="key" data-key="3" onclick="handleInput('3')">3</button>
+    </div>
+    <div class="row">
+        <button class="key" data-key="4" onclick="handleInput('4')">4</button>
+        <button class="key" data-key="5" onclick="handleInput('5')">5</button>
+        <button class="key" data-key="6" onclick="handleInput('6')">6</button>
+    </div>
+    <div class="row">
+        <button class="key" data-key="7" onclick="handleInput('7')">7</button>
+        <button class="key" data-key="8" onclick="handleInput('8')">8</button>
+        <button class="key" data-key="9" onclick="handleInput('9')">9</button>
+    </div>
+    <div class="row">
+        <button class="key key-special" data-key="Backspace" onclick="handleInput('Backspace')">一字消す</button>
+        <button class="key" data-key="0" onclick="handleInput('0')">0</button>
+        <button class="key key-special" data-key="Enter" onclick="handleInput('Enter')">Enter</button>
+    </div>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -594,14 +618,16 @@
         if (key === 'Shift') return;
         let selector;
         if (/^[1-9]$/.test(key)) {
-            selector = `#num-${key}`;
+            selector = `#num-${key}, .key[data-key="${key}"]`;
         } else {
             selector = `.key[data-key="${CSS.escape(key)}"]`;
         }
-        const btn = document.querySelector(selector);
-        if (!btn || btn.classList.contains('key-disabled')) return;
-        btn.classList.add('active');
-        setTimeout(() => btn.classList.remove('active'), 150);
+        document.querySelectorAll(selector).forEach(btn => {
+            if (btn.offsetParent === null) return; // 非表示のキーボードは無視
+            if (btn.classList.contains('key-disabled')) return;
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 150);
+        });
     }
 
 
@@ -868,12 +894,16 @@
             inputs[activeInputIdx] += '→';
         } else if (key === ';') {
             inputs[activeInputIdx] += '+';
-        } else if (/^[1-9]$/.test(key)) {
-            const n = parseInt(key) - 1;
-            if (isShift) {
-                inputs[activeInputIdx] += NRM_DIGITS[n];
-            } else {
-                inputs[activeInputIdx] += SUB_DIGITS[n];
+        } else if (/^[0-9]$/.test(key)) {
+            if (selectedVerIdx === 6) {
+                inputs[activeInputIdx] += key;
+            } else if (key !== '0') {
+                const n = parseInt(key) - 1;
+                if (isShift) {
+                    inputs[activeInputIdx] += NRM_DIGITS[n];
+                } else {
+                    inputs[activeInputIdx] += SUB_DIGITS[n];
+                }
             }
         } else if (/^[a-zA-Z]$/.test(key)) {
             if (isZenkaku) {
@@ -986,8 +1016,11 @@
         totalQuestions = currentPool.length;
         showScreen('');
         document.getElementById('game-container').style.display = 'flex';
-        document.getElementById('main-keyboard').style.display = 'block';
-        document.getElementById('shift-banner').style.display = 'block';
+
+        const isNumericVer = (selectedVerIdx === 6);
+        document.getElementById('main-keyboard').style.display = isNumericVer ? 'none' : 'block';
+        document.getElementById('numeric-keyboard').style.display = isNumericVer ? 'block' : 'none';
+        document.getElementById('shift-banner').style.display = isNumericVer ? 'none' : 'block';
 
         // 全角固定バージョン判定
         isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
@@ -1161,6 +1194,7 @@
     function showAllEnd() {
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('numeric-keyboard').style.display = 'none';
         document.getElementById('shift-banner').style.display = 'none';
 
         const scoreEl = document.getElementById('allend-score');
@@ -1205,6 +1239,7 @@
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('main-keyboard').style.display = 'none';
+        document.getElementById('numeric-keyboard').style.display = 'none';
         document.getElementById('shift-banner').style.display = 'none';
         if (id) document.getElementById(id).classList.add('active-screen');
     }
@@ -1347,6 +1382,14 @@
         if (document.activeElement.id === 'admin-input') return;
 
         let key = e.key;
+
+        if (selectedVerIdx === 6) {
+            const NUMERIC_ALLOWED = new Set(['0','1','2','3','4','5','6','7','8','9','Enter','Backspace']);
+            if (!NUMERIC_ALLOWED.has(key)) return;
+            e.preventDefault();
+            handleInput(key);
+            return;
+        }
 
         if (key === 'Zenkaku' || key === 'Hankaku' || key === 'ZenkakuHankaku' || key === 'KanaMode') {
             e.preventDefault();
