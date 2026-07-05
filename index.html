@@ -896,9 +896,11 @@
         '分子名を化学式で答える',
         '化学式を分子名で答える',
         '反応を化学式で答える',
+        '元素番号を元素記号で答える',
+        '元素記号を元素番号で答える',
     ];
 
-    const CHANGE_PAIRS = [[0,1],[2,3]];
+    const CHANGE_PAIRS = [[0,1],[2,3],[5,6]];
 
     function verStart(vi) {
         return vi === 0 ? 0 : (window.hani_end[vi-1] + 1);
@@ -955,7 +957,7 @@
         const listEl = document.getElementById('ver-list');
         if (!listEl) return;
         listEl.innerHTML = '';
-        const count = Math.min(window.hani_end.length, 5);
+        const count = Math.min(window.hani_end.length, VER_LABELS.length);
         for (let i = 0; i < count; i++) {
             const val = window.hani_end[i];
             const btn = document.createElement('button');
