@@ -552,8 +552,8 @@
 
 <!-- 反応を化学式で答えるVer専用：キーボード/メモ タブ -->
 <div id="kbd-tabs">
-    <button class="kbd-tab active" id="tab-keyboard" onclick="switchTab('keyboard')">キーボード</button>
-    <button class="kbd-tab" id="tab-memo" onclick="switchTab('memo')">メモ</button>
+    <button class="kbd-tab active" id="tab-keyboard" onclick="switchTab('keyboard')">⌨️ キーボード</button>
+    <button class="kbd-tab" id="tab-memo" onclick="switchTab('memo')">✏️ メモ</button>
 </div>
 
 <div id="memo-panel">
@@ -1567,9 +1567,20 @@
                 window.saveToFirebase();
             }
         }
+        else if (cmd === 'haniall') {
+            const startIdx = parseInt(p[1]);
+            const delta = parseInt(p[2]);
+            if (isNaN(startIdx) || isNaN(delta)) return logAdmin('Usage: haniall <開始idx> <加算値(負数可、例: -10)>');
+            if (startIdx < 0 || startIdx >= window.hani_end.length) return logAdmin('Error: Invalid index.');
+            for (let i = startIdx; i < window.hani_end.length; i++) {
+                window.hani_end[i] += delta;
+            }
+            logAdmin(`hani[${startIdx}]～[${window.hani_end.length - 1}] に ${delta} を加算しました。`);
+            window.saveToFirebase();
+        }
         else {
             logAdmin(`Unknown command: ${cmd}`);
-            logAdmin('Commands: exit, setpass, show, add, replace, remove');
+            logAdmin('Commands: exit, setpass, show, add, replace, remove, haniall');
         }
     }
 
