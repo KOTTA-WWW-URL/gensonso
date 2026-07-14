@@ -517,10 +517,12 @@
         <button class="key" data-key="m" onclick="handleInput('m')"><span class="key-main" id="kd-m">m</span></button>
         <button class="key key-special" data-key="Backspace" onclick="handleInput('Backspace')">⌫</button>
     </div>
-    <!-- Row 4: →, ;(+), Space, Enter -->
+    <!-- Row 4: →, ;(+), (, ), Space, Enter -->
     <div class="row">
         <button class="key key-wide" data-key="ArrowRight" onclick="handleInput('ArrowRight')">→</button>
         <button class="key key-wide" data-key=";" onclick="handleInput(';')">+</button>
+        <button class="key" data-key="(" id="key-paren-open" onclick="handleInput('(')" style="display:none;">(</button>
+        <button class="key" data-key=")" id="key-paren-close" onclick="handleInput(')')" style="display:none;">)</button>
         <button class="key key-space" data-key=" " id="space-key" onclick="handleInput(' ')">Space</button>
         <button class="key key-special" data-key="Enter" onclick="handleInput('Enter')">Enter</button>
     </div>
@@ -1083,6 +1085,8 @@
             inputs[activeInputIdx] += '→';
         } else if (key === ';') {
             inputs[activeInputIdx] += '+';
+        } else if (key === '(' || key === ')') {
+            inputs[activeInputIdx] += key;
         } else if (/^[0-9]$/.test(key)) {
             if (selectedVerIdx === 6) {
                 inputs[activeInputIdx] += key;
@@ -1218,6 +1222,11 @@
         document.getElementById('main-keyboard').style.display = isNumericVer ? 'none' : 'block';
         document.getElementById('numeric-keyboard').style.display = isNumericVer ? 'block' : 'none';
         document.getElementById('shift-banner').style.display = isNumericVer ? 'none' : 'block';
+
+        // 「分子名を化学式で答える」「反応を化学式で答える」では化学式入力用に ( ) キーを表示
+        const showParenKeys = (selectedVerIdx === 2 || selectedVerIdx === 4);
+        document.getElementById('key-paren-open').style.display = showParenKeys ? 'flex' : 'none';
+        document.getElementById('key-paren-close').style.display = showParenKeys ? 'flex' : 'none';
 
         // 全角固定バージョン判定
         isZenkakuFixed = ZENKAKU_FIXED_VERS.has(selectedVerIdx);
